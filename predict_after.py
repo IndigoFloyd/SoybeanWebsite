@@ -1,0 +1,125 @@
+import os
+import torch
+from data_loader import *
+from dataprocess_predict import *
+from torch.utils.data import DataLoader
+# from AlexNet_206_p import *
+# from AlexNet_206 import *
+import time
+import requests
+import schedule
+import globalvar
+
+class predict():
+
+    TOKENIZERS_PARALLELISM= False
+    def __init__(self,genotype_path,trait_for_predict,save_path,if_all = False):
+        schedule.every(0.5).seconds.do(requests.get, 'http://127.0.0.1:5000/progress')
+        self.path = r'D:/Projects/website/soybean/predict/weight'
+        self.Result = pd.DataFrame()
+        self.is_finished = False
+        #构建需要预测的性状列表
+        n_trait = ['protein', 'oil', 'SdWgt', 'Yield', 'R8', 'R1', 'Hgt']
+        p_trait = ['ST', 'FC', 'P_DENS', 'POD']
+        if not if_all:
+            self.n_trait = []
+            self.p_trait = []
+            for trait in trait_for_predict:
+                if trait in n_trait:
+                    self.n_trait.append(trait)
+                elif trait in p_trait:
+                    self.p_trait.append(trait)
+                else:
+                    print("Error:Couldn't find target trait!")
+            self.trait_list = trait_for_predict
+        else:
+            self.n_trait, self.p_trait = n_trait, p_trait
+            self.trait_list = self.n_trait + self.p_trait
+
+        #读取基因型文件以及存储路径
+        self.vcf_path = rf'{genotype_path}'
+        self.save_dir = rf'{save_path}'
+
+        #获取各个性状的最值、对应类别号的字典并转换为列表        
+        max_min = pd.read_csv(r'D:/Projects/website/soybean/predict/n_trait.txt',header=None)
+        p_dict = open(r'D:/Projects/website/soybean/predict/p_trait.txt','r').readlines()
+        self.p_data = [i.strip() for i in p_dict]
+        self.n_data = np.array(max_min.iloc[:]).tolist()
+        self.forward()
+        while not self.is_finished:
+            schedule.run_pending()
+
+    def timer(self):
+        return time.time()
+    
+    def forward(self):
+        t1 = self.timer()
+        #数据预处理
+        data_list = data_process(self.vcf_path)
+        #返回处理后的数据以及需要预测的样本列表
+        predict_data,sample_list = data_list.to_dataset()
+        #构造迭代器
+        loader = DataLoader(data_loader(predict_data),batch_size=1,shuffle=False,num_workers=0)
+        result = {}
+        t2 = self.timer()
+        # print(f'Data process has done! Use time:{t2-t1}','\n','Start data predict')
+        #对性状列表中的所有性状进行预测
+        for index,(feature) in enumerate(loader):
+            feature = feature.to('cuda:0')
+            het = []
+            globalvar.setProgressBar(f"{(index+1) / len(sample_list) * 100:.2f}%")
+            # print(f"({index+1} / {len(sample_list)})-------{(index+1) / len(sample_list) * 100:.2f}%")
+            for trait in self.trait_list:
+                globalvar.setTitle(f"Predicting: Sample {index + 1} ({index+1} / {len(sample_list)})'s trait {trait}")
+                weight_path = os.path.join(self.path, f'{trait}_best.pt')
+                net = torch.load(weight_path, map_location="cuda:0")
+                net.eval()
+                y_het = net(feature)
+                #若为质量性状，则返回预测值中概率最大一类的索引
+                if trait in self.p_trait:
+                    y_het =  np.argmax(y_het.to('cpu').detach().numpy(),axis=1)
+                #将该样本的每一个性状加入列表
+                    het.append(y_het[0])
+                else:
+                    het.append(y_het.to('cpu').detach().numpy()[0][0])
+            #构建结果字典，键值对： 样本：[性状1，性状2……]
+            result[sample_list[index]] = het
+        t3 = self.timer()
+        # print(r'Predict has done! Use time:{t3-t2}','\n','Start data restore')
+
+        #将结果列表转为dataframe后进行转置，行索引为样本ID，列索引为性状预测值
+        result = pd.DataFrame(result).transpose()
+        result.columns = self.trait_list
+
+        #对数量性状的归一化数据、质量性状的分类数据进行还原
+        traitnum = 0
+        for trait in self.trait_list:
+            traitnum += 1
+            globalvar.setTitle(f"Restoring trait data: {trait}")
+            globalvar.setProgressBar(f"{(traitnum / len(self.trait_list) * 100):.2f}%")
+            #质量性状归一化数据进行还原
+            if trait in self.n_trait:
+                for i in self.n_data:
+                    print(i)
+                    if trait in i[0]:
+                        max_of_trait,min_of_trait = float(i[0].split(";")[2]),float(i[0].split(";")[4])
+                        break
+                result[trait] = result[trait]*(max_of_trait - min_of_trait) + min_of_trait
+            #根据数据预处理过程中生成的 性状：类别号 字典，对性状进行map还原
+            else:
+                for i in self.p_data:
+                    if trait in i:
+                        dic = eval("{" + i.split("{")[1])
+                        break
+                dic = dict(zip(dic.values(), dic.keys()))
+                result[trait] = result[trait].map(dic)
+        #将预测数据储存为csv
+        result.index.name = "acid"
+        self.Result = result
+        print(self.Result.head())
+        self.is_finished = True
+        result.to_csv(os.path.join(self.save_dir, 'predict.csv'))
+        globalvar.setTitle(f"Finish")
+        globalvar.setProgressBar(f"100%")
+        t4 = self.timer()
+        print(f'Restore has done! Use time:{t4-t3} Result has saved in save path')
