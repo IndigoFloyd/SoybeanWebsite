@@ -83,7 +83,7 @@ def submit():
             if traits[0] == 'all':
                 traits = traits[1:]
             traitsNames = [traitsList[int(i)] for i in traits]
-            client = MongoClient()
+            client = MongoClient("mongodb://localhost:27017/")
             db = client.test
             collection = db.test
             rets = collection.find({'acid': ID})

@@ -15,7 +15,7 @@ class predict():
     TOKENIZERS_PARALLELISM= False
     def __init__(self,genotype_path,trait_for_predict,save_path,if_all = False):
         schedule.every(0.5).seconds.do(requests.get, 'http://127.0.0.1:5000/progress')
-        self.path = r'D:/Projects/website/soybean/predict/weight'
+        self.path = r'./predict/weight'
         self.Result = pd.DataFrame()
         self.is_finished = False
         #构建需要预测的性状列表
@@ -41,8 +41,8 @@ class predict():
         self.save_dir = rf'{save_path}'
 
         #获取各个性状的最值、对应类别号的字典并转换为列表        
-        max_min = pd.read_csv(r'D:/Projects/website/soybean/predict/n_trait.txt',header=None)
-        p_dict = open(r'D:/Projects/website/soybean/predict/p_trait.txt','r').readlines()
+        max_min = pd.read_csv(r'./predict/n_trait.txt',header=None)
+        p_dict = open(r'./predict/p_trait.txt','r').readlines()
         self.p_data = [i.strip() for i in p_dict]
         self.n_data = np.array(max_min.iloc[:]).tolist()
         self.forward()
