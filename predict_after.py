@@ -115,10 +115,11 @@ class predict():
                 result[trait] = result[trait].map(dic)
         #将预测数据储存为csv
         result.index.name = "acid"
+        result = result.reset_index()
         self.Result = result
         print(self.Result.head())
         self.is_finished = True
-        result.to_csv(os.path.join(self.save_dir, 'predict.csv'))
+        result.to_csv(os.path.join(self.save_dir, 'predict.csv'), index=False)
         globalvar.setTitle(f"Finish")
         globalvar.setProgressBar(f"100%")
         t4 = self.timer()

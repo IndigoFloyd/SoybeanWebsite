@@ -13,27 +13,27 @@ class data_process():
         pos_list = pd.read_csv(r"D:/Projects/website/soybean/predict/GD2_snp.txt")
         self.pos_list = pos_list.iloc[:,0].to_list()
         self.geneotype_path = genenotype_file
-        # self.beagle()
+        #self.beagle()
         self.get_row()
 
-    # def beagle(self):
-    #     print("starting beagle")
-    #     process = subprocess.Popen(['java', '-jar', 'beagle.22Jul22.46e.jar', f"gt={self.geneotype_path}", f"out={self.geneotype_path[0:-4]}"], stdout=subprocess.PIPE,
-    #                                stderr=subprocess.PIPE)
-    #     while True:
-    #         line = process.stdout.readline()
-    #         if not line:
-    #             break
-    #         line_decode = line.decode()
-    #         if '[Chr' in line_decode:
-    #             chrNum = re.search('Chr(\d+)', line_decode).group(1)
-    #             if chrNum[0] == '0':
-    #                 chrNum = chrNum[1]
-    #             globalvar.setTitle(f"Completing Chr{chrNum}({chrNum}/20)")
-    #             globalvar.setProgressBar(f"{int(chrNum) / 20 * 100:.2f}%")
-    #     process.wait()
-    #     cmd = f'gunzip -f {self.geneotype_path + ".gz"}'
-    #     subprocess.run(cmd, shell=True)
+    def beagle(self):
+        print("starting beagle")
+        process = subprocess.Popen(['java', '-jar', 'beagle.22Jul22.46e.jar', f"gt={self.geneotype_path}", f"out={self.geneotype_path[0:-4]}"], stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+        while True:
+            line = process.stdout.readline()
+            if not line:
+                break
+            line_decode = line.decode()
+            if '[Chr' in line_decode:
+                chrNum = re.search('Chr(\d+)', line_decode).group(1)
+                if chrNum[0] == '0':
+                    chrNum = chrNum[1]
+                globalvar.setTitle(f"Completing Chr{chrNum}({chrNum}/20)")
+                globalvar.setProgressBar(f"{int(chrNum) / 20 * 100:.2f}%")
+        process.wait()
+        cmd = f'gunzip -f {self.geneotype_path + ".gz"}'
+        subprocess.run(cmd, shell=True)
 
     def get_row(self):
         globalvar.setTitle("Skipping headers")
@@ -104,3 +104,29 @@ class data_process():
         predict_data,sample_list= self.get_data(predict_df)
 
         return predict_data,sample_list
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
