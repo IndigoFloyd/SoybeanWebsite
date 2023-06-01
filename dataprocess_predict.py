@@ -10,7 +10,7 @@ import re
 class data_process():
 
     def __init__(self,genenotype_file):
-        pos_list = pd.read_csv(r"./predict/GD2_snp.txt")
+        pos_list = pd.read_csv(r"./predict/snp.txt")
         self.pos_list = pos_list.iloc[:,0].to_list()
         self.geneotype_path = genenotype_file
         #self.beagle()
