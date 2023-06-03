@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, redirect
 from pymongo import MongoClient
 import hashlib
 import globalvar
@@ -48,9 +48,18 @@ fileName = ""
 page = 0
 resultDF = pd.DataFrame()
 
-app = Flask(__name__)
-@app.route('/')
 def index():
+    return render_template('test.html')
+
+app = Flask(__name__)
+app.add_url_rule('/SoyDNGP', 'index', view_func=index)
+
+@app.route('/')
+def redirect_to_index():
+    return redirect('/SoyDNGP')
+
+@app.route('/SoyDNGP')
+def redirect_to():
     return render_template('test.html')
 
 @app.route('/contact')
@@ -67,37 +76,43 @@ def AboutUs():
 
 @app.route('/Search')
 def Search():
-    return render_template('Search_new.html')
+    return render_template('Search.html')
 
 @app.route('/UploadData')
 def Predict():
     globalvar.initProgressBar()
-    return render_template('UploadData_new.html', df=pd.DataFrame(), total_pages=0, page=0, predict_finish=False)
+    return render_template('UploadData.html', df=pd.DataFrame(), total_pages=0, page=0, predict_finish=False)
 
 @app.route('/submit', methods=['POST'])
 def submit():
     if request.method == 'POST':
-        ID = request.form['ID']
+        ID = request.form['ID'].split(';')
+        new_ID = list(set(ID))
+        new_ID.sort(key=ID.index)
+        print(new_ID)
         traits = request.form.getlist('options')
-        if len(ID) and len(traits) != 0:
-            if traits[0] == 'all':
-                traits = traits[1:]
-            traitsNames = [traitsList[int(i)] for i in traits]
-            client = MongoClient("mongodb://localhost:27017/")
-            db = client.test
-            collection = db.test
-            rets = collection.find({'acid': ID})
-            results = []
-            for i in rets:
-                for j in traitsNames:
-                    value = i.get(j, 'No result')
-                    result = {"trait": j, "value":value}
-                    results.append(result)
-            showresult = True
+        results = []
+        if len(new_ID) and len(traits) != 0:
+            for id in new_ID:
+                if traits[0] == 'all':
+                    traits = traits[1:]
+                traitsNames = [traitsList[int(i)] for i in traits]
+                client = MongoClient("mongodb://localhost:27017/")
+                db = client.test
+                collection = db.test
+                rets = collection.find({'acid': id})
+                results.append({'trait': id, 'value': ""})
+                for i in rets:
+                    for j in traitsNames:
+                        value = i.get(j, 'No result')
+                        result = {"trait": j, "value":value}
+                        results.append(result)
+                showresult = True
         else:
             results = None
             showresult = False
-        return render_template('/Search_new.html', showresult=showresult, results=results, ID=ID)
+        print(results)
+        return render_template('/Search.html', showresult=showresult, results=results, ID=ID)
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -147,13 +162,13 @@ def predict_():
             traitsNames = [traitsList[int(i)] for i in traits]
             print(traitsNames)
             worker = predict_after.predict(filePath + fileName, traitsNames, filePath, if_all=False)
-    
+
         else:
             traits = traits[1:]
             traitsNames = [traitsList[int(i)] for i in traits]
             worker = predict_after.predict(filePath + fileName, [], filePath, if_all=False)
     global resultDF
-    # resultDF = pd.read_csv(r"D:\Projects\website\soybean\2023-05-30-23.37.51.402995-a8d2a9a59092c18c35f688be915a5bb6\predict.csv")
+    # resultDF = pd.read_csv(r"C:\Users\PinkFloyd\OneDrive\桌面\predict.csv")
     if worker.is_finished:
         resultDF = worker.Result
     else:
@@ -166,7 +181,7 @@ def predict_():
     end_row = start_row + rows_per_page
     df_slice = resultDF.iloc[start_row:end_row]
     col_names = resultDF.columns.tolist()
-    return render_template('UploadData_new.html', df=df_slice, total_pages=total_pages, page=page, predict_finish=True, col_names = col_names)
+    return render_template('UploadData.html', df=df_slice, total_pages=total_pages, page=page, predict_finish=True, col_names = col_names)
 
 
 
@@ -180,7 +195,7 @@ def pagenext():
     end_row = start_row + rows_per_page
     df_slice = resultDF.iloc[start_row:end_row]
     col_names = resultDF.columns.tolist()
-    return render_template('UploadData_new.html', df=df_slice, total_pages=total_pages, page=page, predict_finish=False, col_names = col_names)
+    return render_template('UploadData.html', df=df_slice, total_pages=total_pages, page=page, predict_finish=False, col_names = col_names)
 
 @app.route('/pageprev')
 def pageprev():
@@ -192,7 +207,7 @@ def pageprev():
     end_row = start_row + rows_per_page
     df_slice = resultDF.iloc[start_row:end_row, :]
     col_names = resultDF.columns.tolist()
-    return render_template('UploadData_new.html', df=df_slice, total_pages=total_pages, page=page, predict_finish=False, col_names = col_names)
+    return render_template('UploadData.html', df=df_slice, total_pages=total_pages, page=page, predict_finish=False, col_names = col_names)
 
 
 @app.route('/download')
@@ -235,7 +250,7 @@ def send():
         stp.connect(mail_host, 587)
         stp.login(mail_sender, mail_license)
         # 发送邮件，传递参数1：发件人邮箱地址，参数2：收件人邮箱地址，参数3：把邮件内容格式改为str
-        stp.sendmail(mail_sender, mail_receivers, mail.as_string())
+        # stp.sendmail(mail_sender, mail_receivers, mail.as_string())
         stp.quit()
     return render_template('thanks.html')
 
