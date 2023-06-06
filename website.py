@@ -152,36 +152,38 @@ def update_progress():
         'progress': progress
     }  # 返回进度信息
     
-@app.route('/Predict', methods=['POST'])
+@app.route('/Predict', methods=['GET', 'POST'])
 def predict_():
-    globalvar.initProgressBar()
-    traits = request.form.getlist('options')
-    worker = None
-    if len(traits) != 0:
-        if traits[0] != 'all':
-            traitsNames = [traitsList[int(i)] for i in traits]
-            print(traitsNames)
-            worker = predict_after.predict(filePath + fileName, traitsNames, filePath, if_all=False)
+    if request.method == 'POST':
+        globalvar.initProgressBar()
+        traits = request.form.getlist('options')
+        worker = None
+        if len(traits) != 0:
+            if traits[0] != 'all':
+                traitsNames = [traitsList[int(i)] for i in traits]
+                print(traitsNames)
+                worker = predict_after.predict(filePath + fileName, traitsNames, filePath, if_all=False)
 
+            else:
+                traits = traits[1:]
+                traitsNames = [traitsList[int(i)] for i in traits]
+                worker = predict_after.predict(filePath + fileName, [], filePath, if_all=False)
+        global resultDF
+        # resultDF = pd.read_csv(r"C:\Users\PinkFloyd\OneDrive\桌面\predict.csv")
+        if worker.is_finished:
+            resultDF = worker.Result
         else:
-            traits = traits[1:]
-            traitsNames = [traitsList[int(i)] for i in traits]
-            worker = predict_after.predict(filePath + fileName, [], filePath, if_all=False)
-    global resultDF
-    # resultDF = pd.read_csv(r"C:\Users\PinkFloyd\OneDrive\桌面\predict.csv")
-    if worker.is_finished:
-        resultDF = worker.Result
-    else:
-        print("not finished yet")
-    rows_per_page = 3
-    total_pages = len(resultDF) // rows_per_page + 1
-    global page
-    page = 1
-    start_row = (page - 1) * rows_per_page
-    end_row = start_row + rows_per_page
-    df_slice = resultDF.iloc[start_row:end_row]
-    col_names = resultDF.columns.tolist()
-    return render_template('UploadData.html', df=df_slice, total_pages=total_pages, page=page, predict_finish=True, col_names = col_names)
+            print("not finished yet")
+        rows_per_page = 3
+        total_pages = len(resultDF) // rows_per_page + 1
+        global page
+        page = 1
+        start_row = (page - 1) * rows_per_page
+        end_row = start_row + rows_per_page
+        df_slice = resultDF.iloc[start_row:end_row]
+        col_names = resultDF.columns.tolist()
+        return render_template('UploadData.html', df=df_slice, total_pages=total_pages, page=page, predict_finish=True, col_names = col_names)
+    return render_template('UploadData.html', df=pd.DataFrame(), total_pages=0, page=0, predict_finish=False)
 
 
 

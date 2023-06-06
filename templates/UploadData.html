@@ -23,24 +23,23 @@
     <link href="../static/fileinput.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="../static/bootstrap.min.css">
     <script src="//cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script>
-    <script src="../static/fileinput.min.js" type="text/javascript"></script>>
+    <script src="../static/fileinput.min.js" type="text/javascript"></script>
     <style>
         .button-container{
             display: flex;
-            justify-content: space-evenly; 
+            justify-content: space-evenly;
         }
         .form-check-input:checked {
         background-color: #face6a;
-        border-color: #face6a; 
+        border-color: #face6a;
         }
     </style>
     <style>
         .w-container{
-            
+
         }
     </style>
 </head>
-
 <body>
     <div data-collapse="medium" data-animation="default" data-duration="400" data-easing="ease" data-easing2="ease"
         role="banner" class="navigation-bar w-nav">
@@ -69,7 +68,7 @@
                 <form action="/Predict" method="POST">
                     <div class="container my-5">
                     <div class="file-loading">
-                        <input id="file" name='file' type="file" multiple class="file" accept=".vcf" data-preview-file-type="text"> 
+                        <input id="file" name='file' type="file" multiple class="file" accept=".vcf" data-preview-file-type="text">
                     </div>
 
 
@@ -86,7 +85,7 @@
                             removeClass: "btn button btn-outline-warning text-white",
                             cancelClass: "btn button btn-outline-warning text-white",
                             browseClass: "btn button btn-outline-warning text-white"
-                        });    
+                        });
                     </script>
 
                     <div class="table-responsive mb-3">
@@ -95,58 +94,58 @@
                                 <tr>
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             id="checkall" value="all" title="All traits will be predicted." data-bs-toggle="checkbox"> ALL</td>
-    
+
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="1" title="Maturity group (MATGROUP) Maturity evaluation. 000 = earliest, X = latest." data-bs-toggle="checkbox"> MG</td>
-    
+
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="2" title="Stem termination type (STEMTERM) Evaluation of stem growth habit, coded for determinate to indeterminate." data-bs-toggle="checkbox"> ST</td>
-    
+
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="3" title="Flower color (FLWRCOLOR) Flower color." data-bs-toggle="checkbox"> FC</td>
-    
+
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="4" title="Pubescence color (PUBCOLOR) Pubescence color." data-bs-toggle="checkbox"> P_CLR</td>
-    
+
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="5" title="Pubescence form (PUBFORM) Pubescence form." data-bs-toggle="checkbox"> P_FRM</td>
-    
+
                                 </tr>
                                 <tr>
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="6" title="Pubescence density (PUBDENSITY) Pubescence density." data-bs-toggle="checkbox"> PDENS</td>
-    
+
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="7" title="Pod color (PODCOLOR) Pod color." data-bs-toggle="checkbox"> POD</td>
-    
+
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="8" title="Seed coat luster (SCOATLUST) Seed coat luster." data-bs-toggle="checkbox"> SC_L</td>
-    
+
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="9" title="Seed coat color (SCOATCOLOR) Seed coat color." data-bs-toggle="checkbox"> SC_CLR</td>
-    
+
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="10" title="Hilum color (HILUMCOLOR) Hilum color." data-bs-toggle="checkbox"> H_CLR</td>
-    
+
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="11" title="Protein (PROTEIN) Protein percent of dry weight of seed. Ex: 26.8, 49.9" data-bs-toggle="checkbox"> protein</td>
                                 </tr>
                                 <tr>
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="12" title="Oil (OIL) Oil percent of dry weight of seed. Ex: 16.4, 19.2" data-bs-toggle="checkbox"> oil</td>
-    
+
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="13" title="Linoleic (LINOLEIC) Linoleic acid percent of oil. Ex: 44.1, 56.2" data-bs-toggle="checkbox"> Linoleic</td>
-    
+
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="14" title="Linolenic (LINOLENIC) Linolenic acid percent of oil. Ex: 6.3, 11.5" data-bs-toggle="checkbox"> Linolenic</td>
-    
+
                                     <!-- <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="15" data-bs-toggle="checkbox"> eno</td> -->
-    
+
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="16" title="Flowering (FLOWERDATE) Date that 50% of the plants have begun to flower; expressed as month (1 or 2 digits) and day (2 digits). Descriptor is a numeric field. Blank value means no data. Ex: 806" data-bs-toggle="checkbox"> R1</td>
-    
+
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="17" title="Maturity date (MATDATE) Date that 95% of the pods have reached final color; expressed as month (1 or 2 digits) and day (2 digits). Blank value means no data. Ex: 1009" data-bs-toggle="checkbox"> R8</td>
                                 </tr>
@@ -154,19 +153,19 @@
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="18" title="Height (HEIGHT) Plant height from ground to stem tip in centimeters measured at maturity. Descriptor is a numeric field. 999 = PROCUMBENT
 " data-bs-toggle="checkbox"> Hgt</td>
-    
+
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="19" title="MATURITY LOCUS E3 (LOCUS_E3) Maturity locus E3 (GmPhyA3)" data-bs-toggle="checkbox"> Mat</td>
-    
+
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="20" title="Lodging (LODGING) Tendency of plant to lodge, measured at maturity. Scored 1 (erect) to 5 (prostrate)" data-bs-toggle="checkbox"> Ldg</td>
-    
+
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="21" title="Seed quality (SEEDQUAL) Visual quality evaluation considering wrinkling, defective seed coat, greenish or diseased seeds. Descriptor is a numeric field. Ex: 1.6. 1.0 = GOOD, 5.0 = POOR." data-bs-toggle="checkbox"> SQ</td>
-    
+
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="22" title="Seed weight (SEEDWEIGHT) Weight of 100 seeds in grams (g)." data-bs-toggle="checkbox"> SdWgt</td>
-    
+
                                     <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
                                             value="23" title="Yield (YIELD) Yield in megagrams per hectare (Mg/ha) at 13% seed moisture. Ex: 2.21, 3.05" data-bs-toggle="checkbox"> Yield</td>
                             </tr>
@@ -219,11 +218,11 @@
             <a href="/download"><button class="button">Download</button></a>
         </div>
         </div>
-        
-            
+
+
     </section>
     {% endif %}
-                
+
 
                     <script src="//cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 
