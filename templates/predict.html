@@ -206,46 +206,6 @@
                   </div>
                 </div>
               </div>
-              <script>
-                $("#joinDbBtn").on("click", () => {
-                  // 获取选择了哪些性状
-                  let options = $('input[name="options"]:checked').map(function () {
-                    return $(this).val();
-                  }).get();
-                  // 构造请求参数
-                  let data = {
-                    "options": options,
-                    "join": "yes"
-                  }
-                  // 调用/Predict接口,传入data
-                  fetch('/getArgs', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(data)
-                  })
-                });
-                $("#nojoinDbBtn").on("click", () => {
-                  // 获取选择了哪些性状
-                  let options = $('input[name="options"]:checked').map(function () {
-                    return $(this).val();
-                  }).get();
-                  // 构造请求参数
-                  let data = {
-                    "options": options,
-                    "join": "no"
-                  }
-                  // 调用/Predict接口,传入data
-                  fetch('/getArgs', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(data)
-                  })
-                });
-              </script>
               <div class="progress" id="predictProgress" style="display:none">
                 <div id="progress-bar" class="progress-bar progress-bar-striped bg-success progress-bar-success"
                   role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
@@ -256,7 +216,7 @@
       </div>
     </div>
   </div>
-  
+
   {% if not df.empty %}
   <script>
     $(function () {
@@ -320,6 +280,22 @@
     // 点击确定后开始预测
     $(function () {
       $('#joinDbBtn').click(function () {
+        let options = $('input[name="options"]:checked').map(function () {
+          return $(this).val();
+        }).get();
+        // 构造请求参数
+        let data = {
+          "options": options,
+          "join": "yes"
+        }
+        // 调用/Predict接口,传入data
+        fetch('/getArgs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(data)
+        })
         document.querySelector('#predictProgress').style.display = "block";
         progressInterval = setInterval(function () {
           fetch('/progress')
@@ -336,6 +312,22 @@
     // 点击取消后开始预测
     $(function () {
       $('#nojoinDbBtn').click(function () {
+        let options = $('input[name="options"]:checked').map(function () {
+          return $(this).val();
+        }).get();
+        // 构造请求参数
+        let data = {
+          "options": options,
+          "join": "no"
+        }
+        // 调用/Predict接口,传入data
+        fetch('/getArgs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(data)
+        })
         document.querySelector('#predictProgress').style.display = "block";
         progressInterval = setInterval(function () {
           fetch('/progress')

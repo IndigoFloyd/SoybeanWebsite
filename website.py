@@ -15,8 +15,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
 import smtplib
-
-
+from flask_session import Session
 # 公用变量，性状名
 traitsList = ['ALL',
  'MG',
@@ -51,15 +50,16 @@ progressdict = {}
 def index():
     return render_template('index.html')
 app = Flask(__name__)
-# 作用域为会话
-app.config["SESSION_COOKIE_SCOPE"] = 'session'
-# 路径为根路径
-app.config["SESSION_COOKIE_PATH"] = None
-# session数据不持久化
-app.config["SESSION_PERMANENT"] = False
 app.add_url_rule('/SoyDNGP', 'index', view_func=index)
 # 设置密钥，用于获取session信息
 app.secret_key = hashlib.md5(os.urandom(20)).hexdigest()
+app.config['SESSION_TYPE'] = 'filesystem'  # session类型为filesystem
+app.config['SESSION_FILE_DIR'] = '/flask-session'  # session类型为filesystem
+app.config['SESSION_PERMANENT'] = True  # 如果设置为True，则关闭浏览器session就失效。
+app.config['SESSION_USE_SIGNER'] = False  # 是否对发送到浏览器上session的cookie值进行加密
+app.config['SESSION_KEY_PREFIX'] = 'session:'  # 保存到session中的值的前缀
+
+Session(app)
 
 # 重定向主页至/SoyDNGP
 @app.route('/')
@@ -216,10 +216,12 @@ def getArgs():
         traits = data.get('options')
         session['join'] = join
         session['traits'] = traits
+        print(f"getArgs中的session:{session}")
     return 'success'
 
 @app.route('/Predict', methods=['GET', 'POST'])
 def JoinOrNot():
+    print(f"predict中的session:{session}")
     if request.method == 'POST':
         # 获取日期与md5，组装成taskID用以辨别不同请求
         date = str(datetime.datetime.now()).split(' ')
@@ -264,7 +266,7 @@ def JoinOrNot():
         if len(session['traits']) != 0:
             # 判断是否点击了全选，并更改traitsNames
             if session['traits'][0] != 'all':
-                print(session['filePath'] + session['fileName'])
+                # print(session['filePath'] + session['fileName'])
                 traitsNames = [traitsList[int(i)] for i in session['traits']]
                 # 开始预测
                 worker = predict_after.predict(session['filePath'] + session['fileName'], traitsNames,
