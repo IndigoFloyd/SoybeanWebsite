@@ -14,8 +14,9 @@ class predict():
     def __init__(self, genotype_path, trait_for_predict, save_path, Redis, taskID="", if_all = False):
         self.Redis = Redis
         self.path = r'./predict/weight'
-        self.Result = pd.DataFrame()
         self.taskID = taskID
+        self.progressdict = {"title": "", "progress": "", "predict_finish": False}
+        self.taskdict = {"result": pd.DataFrame(), "page": 0, "total_pages": 0, "col_names": []}
         #构建需要预测的性状列表
         n_trait = ['protein', 'oil', 'SdWgt', 'Yield', 'R8', 'R1', 'Hgt', 'Linoleic', 'Linolenic']
         p_trait = ['ST', 'FC', 'P_DENS', 'POD']
@@ -45,9 +46,13 @@ class predict():
         self.n_data = np.array(max_min.iloc[:]).tolist()
         self.forward()
 
-    def insertRedis(self, taskID, jsonStr):
-        msg = json.dumps(jsonStr)
-        self.Redis.publish(taskID, msg)
+    def insertRedis(self):
+        msg = json.dumps({self.taskID: self.progressdict})
+        self.Redis.set('progressdict', msg)
+
+    def insertTaskRedis(self):
+        msg = json.dumps({self.taskID: self.taskdict})
+        self.Redis.set('taskdict', msg)
 
     def timer(self):
         return time.time()
@@ -67,10 +72,12 @@ class predict():
         for index, (feature) in enumerate(loader):
             feature = feature.to('cuda:0')
             het = []
-            self.insertRedis(self.taskID, {"progress": f"{(index+1) / len(sample_list) * 100:.2f}%"})
+            self.progressdict['progress'] = f"{(index+1) / len(sample_list) * 100:.2f}%"
+            self.insertRedis()
             # print(f"({index+1} / {len(sample_list)})-------{(index+1) / len(sample_list) * 100:.2f}%")
             for trait in self.trait_list:
-                self.insertRedis(self.taskID, {"title": f"Predicting: Sample {index + 1} ({index+1} / {len(sample_list)})'s trait {trait}"})
+                self.progressdict['title'] = f"Predicting: Sample {index + 1} ({index+1} / {len(sample_list)})'s trait {trait}"
+                self.insertRedis()
                 weight_path = os.path.join(self.path, f'{trait}_best.pt')
                 net = torch.load(weight_path, map_location="cuda:0")
                 net.eval()
@@ -95,8 +102,9 @@ class predict():
         traitnum = 0
         for trait in self.trait_list:
             traitnum += 1
-            self.insertRedis(self.taskID, {"title": f"Restoring trait data: {trait}"})
-            self.insertRedis(self.taskID, {"progress": f"{(traitnum / len(self.trait_list) * 100):.2f}%"})
+            self.progressdict['title'] = f"Restoring trait data: {trait}"
+            self.progressdict['progress'] = f"{(traitnum / len(self.trait_list) * 100):.2f}%"
+            self.insertRedis()
             #质量性状归一化数据进行还原
             if trait in self.n_trait:
                 for i in self.n_data:
@@ -116,10 +124,12 @@ class predict():
         #将预测数据储存为csv
         result.index.name = "acid"
         result = result.reset_index()
-        self.Result = result
-        print(self.Result.head())
+        self.taskdict['result'] = result.to_json()
+        # 把结果传出去
+        self.insertTaskRedis()
         result.to_csv(os.path.join(self.save_dir, 'predict.csv'), index=False)
-        self.insertRedis(self.taskID, {"title": f"Finish"})
-        self.insertRedis(self.taskID, {"progress": f"100%"})
+        self.progressdict['title'] = "Finish"
+        self.progressdict['progress'] = "100%"
+        self.insertRedis()
         t4 = self.timer()
         print(f'Restore has done! Use time:{t4-t3} Result has saved in save path')

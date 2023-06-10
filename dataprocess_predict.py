@@ -12,6 +12,7 @@ class data_process():
     def __init__(self, genenotype_file, Redis, taskID):
         self.Redis = Redis
         self.taskID = taskID
+        self.progressdict = {"title": "", "progress": "", "predict_finish": False}
         pos_list = pd.read_csv(r"./predict/snp.txt")
         self.pos_list = pos_list.iloc[:,0].to_list()
         self.geneotype_path = genenotype_file
@@ -19,9 +20,9 @@ class data_process():
         self.get_row()
 
 
-    def insertRedis(self, taskID, jsonStr):
-        msg = json.dumps(jsonStr)
-        self.Redis.publish(taskID, msg)
+    def insertRedis(self):
+        msg = json.dumps({self.taskID: self.progressdict})
+        self.Redis.set('progressdict', msg)
 
     def beagle(self):
         print("starting beagle")
@@ -36,15 +37,17 @@ class data_process():
                 chrNum = re.search('Chr(\d+)', line_decode).group(1)
                 if chrNum[0] == '0':
                     chrNum = chrNum[1]
-                self.insertRedis(self.taskID, {"title": f"Completing Chr{chrNum}({chrNum}/20)"})
-                self.insertRedis(self.taskID, {"progress": f"{int(chrNum) / 20 * 100:.2f}%"})
+                self.progressdict['title'] = f"Completing Chr{chrNum}({chrNum}/20)"
+                self.progressdict['progress'] = f"{int(chrNum) / 20 * 100:.2f}%"
+                self.insertRedis()
         process.wait()
         cmd = f'gunzip -f {self.geneotype_path + ".gz"}'
         subprocess.run(cmd, shell=True)
 
     def get_row(self):
-        self.insertRedis(self.taskID, {"title": "Skipping headers"})
-        self.insertRedis(self.taskID, {"progress": "20%"})
+        self.progressdict['title'] = "Skipping headers"
+        self.progressdict['progress'] = "20%"
+        self.insertRedis()
         skipped = []
         csv.field_size_limit(500 * 1024 * 1024)
         with open(self.geneotype_path, 'r') as csvfile:
@@ -53,10 +56,13 @@ class data_process():
                 if row[0].strip()[:2] == '##':
                     skipped.append(i)
             self.skipped = skipped
-        self.insertRedis(self.taskID, {"progress": "100%"})
+        self.progressdict['progress'] = "100%"
+        self.insertRedis()
 
     def get_data(self, dataframe):
-        self.insertRedis(self.taskID, {"title": "Converting data"})
+        self.progressdict['title'] = "Converting data"
+        self.progressdict['progress'] = "0%"
+        self.insertRedis()
         data_marix = np.array(dataframe)
         self.data_marix = data_marix
         self.sample_list = list(dataframe.index)
@@ -79,7 +85,8 @@ class data_process():
                     one_hot[0,snp,1] = 1
                     one_hot[0,snp,2] = 1
                 if snp % 500 == 0:
-                    self.insertRedis(self.taskID, {"progress": f"{(((snp+1)+(sample*total_SNP)) / (total_Sample*total_SNP))*100:.2f}%"})
+                    self.progressdict['progress'] = f"{(((snp+1)+(sample*total_SNP)) / (total_Sample*total_SNP))*100:.2f}%"
+                    self.insertRedis()
             one_hot.resize((206,206,3),refcheck=True)
             data.append(torch.from_numpy(one_hot))
 
@@ -90,8 +97,9 @@ class data_process():
     def to_dataset(self):
         skip = self.skipped
         df = pd.read_csv(self.geneotype_path, sep=r"\s+", skiprows=skip)
-        self.insertRedis(self.taskID, {"title": "Mapping"})
-        self.insertRedis(self.taskID, {"progress": "15.8%"})
+        self.progressdict['title'] = "Mapping"
+        self.progressdict['progress'] = "15.8%"
+        self.insertRedis()
         df['ID'] = df['#CHROM'].map(str) + '_' + df['POS'].map(
             int).map(str)
         df = df.drop(columns=[
@@ -99,10 +107,13 @@ class data_process():
         ])
 
         df = df.set_index('ID')
-        self.insertRedis(self.taskID, {"progress": "100"})
-        self.insertRedis(self.taskID, {"title": "Extracting SNP information"})
+        self.progressdict['progress'] = "100%"
+        self.insertRedis()
+        self.progressdict['title'] = "Extracting SNP information"
+        self.insertRedis()
         for i in range(len(df.columns)):
-            self.insertRedis(self.taskID, {"progress": f"{(i / len(df.columns))*100:.2f}%"})
+            self.progressdict['progress'] = f"{(i / len(df.columns))*100:.2f}%"
+            self.insertRedis()
             col = df.columns[i]
             df[col] = df[col].str[:3]
 

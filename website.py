@@ -1,5 +1,4 @@
-import pymongo
-from flask import Flask, render_template, request, redirect, jsonify, send_file, session, url_for
+from flask import Flask, render_template, request, redirect, jsonify, send_file, session
 import pandas as pd
 from pymongo import MongoClient
 import shutil
@@ -16,6 +15,8 @@ from email.mime.multipart import MIMEMultipart
 from email.header import Header
 import smtplib
 from flask_session import Session
+import json
+
 # 公用变量，性状名
 traitsList = ['ALL',
  'MG',
@@ -41,10 +42,6 @@ traitsList = ['ALL',
  'SQ',
  'SdWgt',
  'Yield']
-# 用于保存结果
-taskdict = {}
-# 用于保存进度条信息
-progressdict = {}
 
 # 启动app实例
 def index():
@@ -54,7 +51,7 @@ app.add_url_rule('/SoyDNGP', 'index', view_func=index)
 # 设置密钥，用于获取session信息
 app.secret_key = hashlib.md5(os.urandom(20)).hexdigest()
 app.config['SESSION_TYPE'] = 'filesystem'  # session类型为filesystem
-app.config['SESSION_FILE_DIR'] = '/flask-session'  # session类型为filesystem
+app.config['SESSION_FILE_DIR'] = f'./{app.secret_key}/flask-session'  # session类型为filesystem
 app.config['SESSION_PERMANENT'] = True  # 如果设置为True，则关闭浏览器session就失效。
 app.config['SESSION_USE_SIGNER'] = False  # 是否对发送到浏览器上session的cookie值进行加密
 app.config['SESSION_KEY_PREFIX'] = 'session:'  # 保存到session中的值的前缀
@@ -219,96 +216,58 @@ def getArgs():
         traits = data.get('options')
         session['join'] = join
         session['traits'] = traits
-        print(f"getArgs中的session:{session}")
     return 'success'
 
 @app.route('/Predict', methods=['GET', 'POST'])
 def JoinOrNot():
-    print(f"predict中的session:{session}")
     if request.method == 'POST':
         # 获取日期与md5，组装成taskID用以辨别不同请求
         date = str(datetime.datetime.now()).split(' ')
+        # 从线程池获取一个redis线程
         r = redis.Redis(connection_pool=redis_pool)
-        # 进度条数据更新函数，需要输入taskID作为参数
-        def getprogress(taskID):
-            # 创建redis的pubsub对象
-            ps = r.pubsub()
-            # 订阅taskID频道
-            ps.subscribe(taskID)
-            # 将进度条字典设置为全局变量
-            global progressdict
-            # 将进度条字典对应的taskID初始化
-            progressdict[taskID] = {"title": "", "progress": "", "predict_finish": False}
-            # 如果监听到了频道中发布的信息
-            for item in ps.listen():
-                # data=1代表成功订阅，是无关信息所以忽略
-                if item['data'] != 1:
-                    # 将data由str转为dict（原格式例如'{"title": ""}', '{"progress": ""}'）
-                    data = eval(item['data'])
-                    # 因为发布的消息是单条的，只包含标题或进度，因此先判断是哪一种，然后更新到字典中，由update_progress组装好发给前端
-                    if [k for k in data.keys()][0] == 'title':
-                        # 获取title
-                        title = data['title']
-                        # 更新title
-                        progressdict[taskID]['title'] = title
-                    # 更新进度条
-                    elif [k for k in data.keys()][0] == 'progress':
-                        # 获取progress
-                        progress = data['progress']
-                        # 更新progress
-                        progressdict[taskID]['progress'] = progress
-            # 更改predict_finish状态
-            progressdict[taskID]['predict_finish'] = session['predict_finish']
-        # 设置线程，通过异步方式更新进度条信息
-        thread = threading.Thread(target=getprogress, args=(session['taskID'], ), daemon=True)
-        # 开始线程
-        thread.start()
-        # 性状为空就设置worker为None
-        worker = None
         # 如果性状不为空
-        print(session['traits'])
         if len(session['traits']) != 0:
             # 判断是否点击了全选，并更改traitsNames
             if session['traits'][0] != 'all':
                 # print(session['filePath'] + session['fileName'])
                 traitsNames = [traitsList[int(i)] for i in session['traits']]
                 # 开始预测
-                worker = predict_after.predict(session['filePath'] + session['fileName'], traitsNames,
+                predict_after.predict(session['filePath'] + session['fileName'], traitsNames,
                                                session['filePath'], r, taskID=session['taskID'],
                                                if_all=False)
             else:
                 traits = session['traits'][1:]
                 traitsNames = [traitsList[int(i)] for i in traits]
-                worker = predict_after.predict(session['filePath'] + session['fileName'], traitsNames,
+                predict_after.predict(session['filePath'] + session['fileName'], traitsNames,
                                                session['filePath'], r, taskID=session['taskID'],
                                                if_all=False)
         # 设置predict_finish状态为True，并更新到全局变量
+        progressdict = json.loads(r.get('progressdict'))[session['taskID']]
         session['predict_finish'] = True
-        global progressdict
-        progressdict[session['taskID']]['predict_finish'] = True
-        # 获取结果
-        resultDF = worker.Result
+        progressdict['predict_finish'] = True
+        r.set('progressdict', json.dumps({session['taskID']: progressdict}))
+        # 获取taskdict
+        taskdict = json.loads(r.get('taskdict'))[session['taskID']]
+        # 因为df无法直接json化，所以需要先转化为JSON再传入taskdict，使用时也要先解析
+        resultJSON = taskdict['result']
+        resultDF = pd.read_json(resultJSON, encoding="utf-8", orient='records')
         # resultDF = pd.read_csv(r"C:\Users\PinkFloyd\OneDrive\桌面\predict.csv")
-        # 声明任务的全局变量
-        global taskdict
-        # 初始化
-        taskdict[session['taskID']] = {"result": pd.DataFrame(), "page": 0, "total_pages": 0, "col_names": []}
-        # 更改结果
-        taskdict[session['taskID']]['result'] = worker.Result
         # 设置每页可以显示的结果数
         rows_per_page = 3
         # 计算总共的页数
-        taskdict[session['taskID']]['total_pages'] = len(resultDF) // rows_per_page + 1
+        taskdict['total_pages'] = len(resultDF) // rows_per_page + 1
         # 设置当前页面数
-        taskdict[session['taskID']]['page'] = 1
+        taskdict['page'] = 1
         # 计算起始行数
-        start_row = (taskdict[session['taskID']]['page'] - 1) * rows_per_page
+        start_row = (taskdict['page'] - 1) * rows_per_page
         # 设置结束行数（当前页面显示的最后一行在resultDF中是第几行）
         end_row = start_row + rows_per_page
         # 使用行号切片resultDF
         df_slice = resultDF.iloc[start_row:end_row]
         # 获取表单的列名
-        taskdict[session['taskID']]['col_names'] = resultDF.columns.tolist()
+        taskdict['col_names'] = resultDF.columns.tolist()
+        # 上传到redis
+        r.set('taskdict', json.dumps({session['taskID']: taskdict}))
         # 如果用户同意加入
         if session['join'] == 'yes':
             # 链接本地MongoDB数据库
@@ -326,7 +285,7 @@ def JoinOrNot():
                 # 创建字典
                 seedDict = {"acid": seedID}
                 # 添加性状内容（col_names[0]是id）
-                for name in taskdict[session['taskID']]['col_names'][1:]:
+                for name in taskdict['col_names'][1:]:
                     trait = name
                     value = f"{row[trait]}(predict, uploaded at{date[0] + '-' + date[1].replace(':', '.')})"
                     # 组装字典
@@ -335,39 +294,57 @@ def JoinOrNot():
                 collection.insert_one(seedDict)
         elif session['join'] == 'no':
             pass
-        return render_template('result.html', df=df_slice, total_pages=taskdict[session['taskID']]['total_pages'],
-                               page=taskdict[session['taskID']]['page'],
+        return render_template('result.html', df=df_slice, total_pages=taskdict['total_pages'],
+                               page=taskdict['page'],
                                predict_finish=session['predict_finish'],
-                               col_names=taskdict[session['taskID']]['col_names'])
+                               col_names=taskdict['col_names'])
 
 @app.route("/progress")
 def update_progress():
-    return progressdict[session['taskID']]
+    # 取一个线程
+    r = redis.Redis(connection_pool=redis_pool)
+    # 取回progressdict
+    progressdict = json.loads(r.get('progressdict'))[session['taskID']]
+    return progressdict
 
 
 @app.route('/pagenext')
 def pagenext():
-    taskdict[session['taskID']]['page'] += 1
+    # 取一个线程
+    r = redis.Redis(connection_pool=redis_pool)
+    # 取回taskdict
+    taskdict = json.loads(r.get('taskdict'))[session['taskID']]
+    taskdict['page'] += 1
+    # 更新page
+    r.set('taskdict', json.dumps({session['taskID']: taskdict}))
     rows_per_page = 3
-    resultDF = taskdict[session['taskID']]['result']
-    start_row = (taskdict[session['taskID']]['page'] - 1) * rows_per_page
+    resultJSON = taskdict['result']
+    resultDF = pd.read_json(resultJSON, encoding="utf-8", orient='records')
+    start_row = (taskdict['page'] - 1) * rows_per_page
     end_row = start_row + rows_per_page
     df_slice = resultDF.iloc[start_row:end_row]
-    return render_template('result.html', df=df_slice, total_pages=taskdict[session['taskID']]['total_pages'],
-                           page=taskdict[session['taskID']]['page'],
-                           predict_finish=session['predict_finish'], col_names=taskdict[session['taskID']]['col_names'])
+    return render_template('result.html', df=df_slice, total_pages=taskdict['total_pages'],
+                           page=taskdict['page'],
+                           predict_finish=session['predict_finish'], col_names=taskdict['col_names'])
 
 @app.route('/pageprev')
 def pageprev():
-    taskdict[session['taskID']]['page'] -= 1
+    # 取一个线程
+    r = redis.Redis(connection_pool=redis_pool)
+    # 取回taskdict
+    taskdict = json.loads(r.get('taskdict'))[session['taskID']]
+    taskdict['page'] -= 1
+    # 更新page
+    r.set('taskdict', json.dumps({session['taskID']: taskdict}))
     rows_per_page = 3
-    resultDF = taskdict[session['taskID']]['result']
-    start_row = (taskdict[session['taskID']]['page'] - 1) * rows_per_page
+    resultJSON = taskdict['result']
+    resultDF = pd.read_json(resultJSON, encoding="utf-8", orient='records')
+    start_row = (taskdict['page'] - 1) * rows_per_page
     end_row = start_row + rows_per_page
     df_slice = resultDF.iloc[start_row:end_row, :]
-    return render_template('result.html', df=df_slice, total_pages=taskdict[session['taskID']]['total_pages'],
-                           page=taskdict[session['taskID']]['page'],
-                           predict_finish=session['predict_finish'], col_names=taskdict[session['taskID']]['col_names'])
+    return render_template('result.html', df=df_slice, total_pages=taskdict['total_pages'],
+                           page=taskdict['page'],
+                           predict_finish=session['predict_finish'], col_names=taskdict['col_names'])
 
 
 @app.route('/download')
