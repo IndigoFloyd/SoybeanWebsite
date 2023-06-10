@@ -183,11 +183,9 @@ def upload():
             # 组合出路径
         savepath = f"./{newfilename}/" + file.filename
         # 全局变量赋值为文件名
-        if 'fileName' not in session:
-            session['fileName'] = file.filename
+        session['fileName'] = file.filename
         # 组装存放目录
-        if 'filePath' not in session:
-            session['filePath'] = f"./{newfilename}/"
+        session['filePath'] = f"./{newfilename}/"
         # 链接数据库
         client = MongoClient("mongodb://localhost:27017/")
         # 打开files
@@ -218,6 +216,7 @@ def getArgs():
         traits = data.get('options')
         session['join'] = join
         session['traits'] = traits
+    return 'success'
 
 @app.route('/Predict', methods=['GET', 'POST'])
 def JoinOrNot():
