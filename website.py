@@ -58,7 +58,10 @@ app.config['SESSION_FILE_DIR'] = '/flask-session'  # session类型为filesystem
 app.config['SESSION_PERMANENT'] = True  # 如果设置为True，则关闭浏览器session就失效。
 app.config['SESSION_USE_SIGNER'] = False  # 是否对发送到浏览器上session的cookie值进行加密
 app.config['SESSION_KEY_PREFIX'] = 'session:'  # 保存到session中的值的前缀
-
+# 创建一个redis实例，用于进度条更新
+host = "127.0.0.1"
+port = "6379"
+redis_pool = redis.ConnectionPool(host=host, port=port, decode_responses=True)
 Session(app)
 
 # 重定向主页至/SoyDNGP
@@ -225,6 +228,7 @@ def JoinOrNot():
     if request.method == 'POST':
         # 获取日期与md5，组装成taskID用以辨别不同请求
         date = str(datetime.datetime.now()).split(' ')
+        r = redis.Redis(connection_pool=redis_pool)
         # 进度条数据更新函数，需要输入taskID作为参数
         def getprogress(taskID):
             # 创建redis的pubsub对象
@@ -413,8 +417,4 @@ def send():
 
 
 if __name__ == "__main__":
-    # 创建一个redis实例，用于进度条更新
-    host = "127.0.0.1"
-    port = "6379"
-    r = redis.StrictRedis(host=host, port=port, decode_responses=True)
     app.run(host="0.0.0.0", port=8080)
