@@ -7,14 +7,12 @@ import hashlib
 import os
 import predict_after
 import redis
-import threading
 # 负责构造文本
 from email.mime.text import MIMEText
 # 负责将多个对象集合起来
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
 import smtplib
-from flask_session import Session
 import json
 
 # 公用变量，性状名
@@ -48,18 +46,12 @@ def index():
     return render_template('index.html')
 app = Flask(__name__)
 app.add_url_rule('/SoyDNGP', 'index', view_func=index)
-# 设置密钥，用于获取session信息
-app.secret_key = hashlib.md5(os.urandom(20)).hexdigest()
-app.config['SESSION_TYPE'] = 'filesystem'  # session类型为filesystem
-app.config['SESSION_FILE_DIR'] = f'./{app.secret_key}/flask-session'  # session类型为filesystem
-app.config['SESSION_PERMANENT'] = True  # 如果设置为True，则关闭浏览器session就失效。
-app.config['SESSION_USE_SIGNER'] = False  # 是否对发送到浏览器上session的cookie值进行加密
-app.config['SESSION_KEY_PREFIX'] = 'session:'  # 保存到session中的值的前缀
+app.secret_key = 'isadiashdiow12324'
 # 创建一个redis实例，用于进度条更新
 host = "127.0.0.1"
 port = "6379"
 redis_pool = redis.ConnectionPool(host=host, port=port, decode_responses=True)
-Session(app)
+
 
 # 重定向主页至/SoyDNGP
 @app.route('/')
@@ -77,21 +69,19 @@ def LearnMore():
 @app.route('/Search')
 def Search():
     return render_template('lookup.html')
+
 # 上传页面
 @app.route('/UploadData')
 def UploadData():
+    # 取一个线程
+    r = redis.Redis(connection_pool=redis_pool)
     # 初始化taskID
-    if 'taskID' not in session:
-        session['taskID'] = hashlib.md5(os.urandom(20)).hexdigest()
-    if 'page' not in session:
-        session['page'] = 0
-    if 'md5' not in session:
-        session['md5'] = ""
-    if 'join' not in session:
-        session['join'] = ""
-    if 'traits' not in session:
-        session['traits'] = []
+    taskID = hashlib.md5(os.urandom(20)).hexdigest()
+    session['taskID'] = taskID
+    task_session = {"taskID": taskID, "md5": "", "join": "", "traits": "", "filePath": "", "fileName": "", "predict_finish": False}
+    r.set("task_session", json.dumps({taskID: task_session}))
     return render_template('predict.html', df=pd.DataFrame())
+
 # 错误页面
 @app.errorhandler(400)
 def page_not_found(error):
@@ -162,6 +152,10 @@ def submit():
 
 @app.route('/upload', methods=['POST'])
 def upload():
+    # 取一个线程
+    r = redis.Redis(connection_pool=redis_pool)
+    # 取回session作为局部变量
+    task_session_ = json.loads(r.get("task_session"))[session['taskID']]
     # 从files获取用户上传的文件
     file = request.files.get('file')
     # 从缓存中被拿出，用byte保存
@@ -171,7 +165,7 @@ def upload():
         # 计算 MD5
         file_md5 = hashlib.md5(content).hexdigest()
         # 将md5作为session的变量
-        session['md5'] = file_md5
+        task_session_['md5'] = file_md5
         # 记录时间，并且转换为列表，一共7个元素
         date = str(datetime.datetime.now()).split(' ')
         # 组合新的文件名，以日期+md5组成，e.g."2023-06-06-16.41.05.379780-a8d2a9a59092c18c35f688be915a5bb6"
@@ -183,9 +177,11 @@ def upload():
             # 组合出路径
         savepath = f"./{newfilename}/" + file.filename
         # 全局变量赋值为文件名
-        session['fileName'] = file.filename
+        task_session_['fileName'] = file.filename
         # 组装存放目录
-        session['filePath'] = f"./{newfilename}/"
+        task_session_['filePath'] = f"./{newfilename}/"
+        # 上传session，更新filePath、fileName和md5
+        r.set("task_session", json.dumps({session['taskID']: task_session_}))
         # 链接数据库
         client = MongoClient("mongodb://localhost:27017/")
         # 打开files
@@ -214,8 +210,12 @@ def getArgs():
         join = data.get("join")
         # 从form获取性状id
         traits = data.get('options')
-        session['join'] = join
-        session['traits'] = traits
+        # 更新到session
+        r = redis.Redis(connection_pool=redis_pool)
+        task_session_ = json.loads(r.get("task_session"))[session['taskID']]
+        task_session_['join'] = join
+        task_session_['traits'] = traits
+        r.set("task_session", json.dumps({session['taskID']: task_session_}))
     return 'success'
 
 @app.route('/Predict', methods=['GET', 'POST'])
@@ -225,25 +225,28 @@ def JoinOrNot():
         date = str(datetime.datetime.now()).split(' ')
         # 从线程池获取一个redis线程
         r = redis.Redis(connection_pool=redis_pool)
+        # 取回session
+        task_session_ = json.loads(r.get("task_session"))[session['taskID']]
         # 如果性状不为空
-        if len(session['traits']) != 0:
+        if len(task_session_['traits']) != 0:
             # 判断是否点击了全选，并更改traitsNames
-            if session['traits'][0] != 'all':
-                # print(session['filePath'] + session['fileName'])
-                traitsNames = [traitsList[int(i)] for i in session['traits']]
+            if task_session_['traits'][0] != 'all':
+                print(task_session_['filePath'] + task_session_['fileName'])
+                traitsNames = [traitsList[int(i)] for i in task_session_['traits']]
                 # 开始预测
-                predict_after.predict(session['filePath'] + session['fileName'], traitsNames,
-                                               session['filePath'], r, taskID=session['taskID'],
+                predict_after.predict(task_session_['filePath'] + task_session_['fileName'], traitsNames,
+                                               task_session_['filePath'], r, taskID=session['taskID'],
                                                if_all=False)
             else:
-                traits = session['traits'][1:]
+                traits = task_session_['traits'][1:]
                 traitsNames = [traitsList[int(i)] for i in traits]
-                predict_after.predict(session['filePath'] + session['fileName'], traitsNames,
-                                               session['filePath'], r, taskID=session['taskID'],
+                predict_after.predict(task_session_['filePath'] + task_session_['fileName'], traitsNames,
+                                               task_session_['filePath'], r, taskID=session['taskID'],
                                                if_all=False)
         # 设置predict_finish状态为True，并更新到全局变量
         progressdict = json.loads(r.get('progressdict'))[session['taskID']]
-        session['predict_finish'] = True
+        task_session_['predict_finish'] = True
+        r.set("task_session", json.dumps({session['taskID']: task_session_}))
         progressdict['predict_finish'] = True
         r.set('progressdict', json.dumps({session['taskID']: progressdict}))
         # 获取taskdict
@@ -269,7 +272,7 @@ def JoinOrNot():
         # 上传到redis
         r.set('taskdict', json.dumps({session['taskID']: taskdict}))
         # 如果用户同意加入
-        if session['join'] == 'yes':
+        if task_session_['join'] == 'yes':
             # 链接本地MongoDB数据库
             client = MongoClient("mongodb://localhost:27017/")
             # 选择test数据库
@@ -292,11 +295,11 @@ def JoinOrNot():
                     seedDict[trait] = value
                 # 添加样本
                 collection.insert_one(seedDict)
-        elif session['join'] == 'no':
+        elif task_session_['join'] == 'no':
             pass
         return render_template('result.html', df=df_slice, total_pages=taskdict['total_pages'],
                                page=taskdict['page'],
-                               predict_finish=session['predict_finish'],
+                               predict_finish=task_session_['predict_finish'],
                                col_names=taskdict['col_names'])
 
 @app.route("/progress")
@@ -314,6 +317,7 @@ def pagenext():
     r = redis.Redis(connection_pool=redis_pool)
     # 取回taskdict
     taskdict = json.loads(r.get('taskdict'))[session['taskID']]
+    task_session_ = json.loads(r.get('task_session'))[session['taskID']]
     taskdict['page'] += 1
     # 更新page
     r.set('taskdict', json.dumps({session['taskID']: taskdict}))
@@ -325,7 +329,7 @@ def pagenext():
     df_slice = resultDF.iloc[start_row:end_row]
     return render_template('result.html', df=df_slice, total_pages=taskdict['total_pages'],
                            page=taskdict['page'],
-                           predict_finish=session['predict_finish'], col_names=taskdict['col_names'])
+                           predict_finish=task_session_['predict_finish'], col_names=taskdict['col_names'])
 
 @app.route('/pageprev')
 def pageprev():
@@ -333,6 +337,7 @@ def pageprev():
     r = redis.Redis(connection_pool=redis_pool)
     # 取回taskdict
     taskdict = json.loads(r.get('taskdict'))[session['taskID']]
+    task_session_ = json.loads(r.get('task_session'))[session['taskID']]
     taskdict['page'] -= 1
     # 更新page
     r.set('taskdict', json.dumps({session['taskID']: taskdict}))
@@ -344,7 +349,7 @@ def pageprev():
     df_slice = resultDF.iloc[start_row:end_row, :]
     return render_template('result.html', df=df_slice, total_pages=taskdict['total_pages'],
                            page=taskdict['page'],
-                           predict_finish=session['predict_finish'], col_names=taskdict['col_names'])
+                           predict_finish=task_session_['predict_finish'], col_names=taskdict['col_names'])
 
 
 @app.route('/download')
