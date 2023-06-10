@@ -329,7 +329,7 @@ def JoinOrNot():
                 collection.insert_one(seedDict)
         elif session['join'] == 'no':
             pass
-        return render_template('predict.html', df=df_slice, total_pages=taskdict[session['taskID']]['total_pages'],
+        return render_template('result.html', df=df_slice, total_pages=taskdict[session['taskID']]['total_pages'],
                                page=taskdict[session['taskID']]['page'],
                                predict_finish=session['predict_finish'],
                                col_names=taskdict[session['taskID']]['col_names'])
@@ -347,7 +347,7 @@ def pagenext():
     start_row = (taskdict[session['taskID']]['page'] - 1) * rows_per_page
     end_row = start_row + rows_per_page
     df_slice = resultDF.iloc[start_row:end_row]
-    return render_template('predict.html', df=df_slice, total_pages=taskdict[session['taskID']]['total_pages'],
+    return render_template('result.html', df=df_slice, total_pages=taskdict[session['taskID']]['total_pages'],
                            page=taskdict[session['taskID']]['page'],
                            predict_finish=session['predict_finish'], col_names=taskdict[session['taskID']]['col_names'])
 
@@ -356,10 +356,10 @@ def pageprev():
     taskdict[session['taskID']]['page'] -= 1
     rows_per_page = 3
     resultDF = taskdict[session['taskID']]['result']
-    start_row = (session['page'] - 1) * rows_per_page
+    start_row = (taskdict[session['taskID']]['page'] - 1) * rows_per_page
     end_row = start_row + rows_per_page
     df_slice = resultDF.iloc[start_row:end_row, :]
-    return render_template('predict.html', df=df_slice, total_pages=taskdict[session['taskID']]['total_pages'],
+    return render_template('result.html', df=df_slice, total_pages=taskdict[session['taskID']]['total_pages'],
                            page=taskdict[session['taskID']]['page'],
                            predict_finish=session['predict_finish'], col_names=taskdict[session['taskID']]['col_names'])
 
