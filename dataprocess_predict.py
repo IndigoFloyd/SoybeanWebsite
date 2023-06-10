@@ -2,19 +2,26 @@ import pandas as pd
 import numpy as np
 import csv
 import torch
-import globalvar
+import json
 import subprocess
 import re
 
 
 class data_process():
 
-    def __init__(self,genenotype_file):
+    def __init__(self, genenotype_file, Redis, taskID):
+        self.Redis = Redis
+        self.taskID = taskID
         pos_list = pd.read_csv(r"./predict/snp.txt")
         self.pos_list = pos_list.iloc[:,0].to_list()
         self.geneotype_path = genenotype_file
         #self.beagle()
         self.get_row()
+
+
+    def insertRedis(self, taskID, jsonStr):
+        msg = json.dumps(jsonStr)
+        self.Redis.publish(taskID, msg)
 
     def beagle(self):
         print("starting beagle")
@@ -29,15 +36,15 @@ class data_process():
                 chrNum = re.search('Chr(\d+)', line_decode).group(1)
                 if chrNum[0] == '0':
                     chrNum = chrNum[1]
-                globalvar.setTitle(f"Completing Chr{chrNum}({chrNum}/20)")
-                globalvar.setProgressBar(f"{int(chrNum) / 20 * 100:.2f}%")
+                self.insertRedis(self.taskID, {"title": f"Completing Chr{chrNum}({chrNum}/20)"})
+                self.insertRedis(self.taskID, {"progress": f"{int(chrNum) / 20 * 100:.2f}%"})
         process.wait()
         cmd = f'gunzip -f {self.geneotype_path + ".gz"}'
         subprocess.run(cmd, shell=True)
 
     def get_row(self):
-        globalvar.setTitle("Skipping headers")
-        globalvar.setProgressBar("20%")
+        self.insertRedis(self.taskID, {"title": "Skipping headers"})
+        self.insertRedis(self.taskID, {"progress": "20%"})
         skipped = []
         csv.field_size_limit(500 * 1024 * 1024)
         with open(self.geneotype_path, 'r') as csvfile:
@@ -46,10 +53,10 @@ class data_process():
                 if row[0].strip()[:2] == '##':
                     skipped.append(i)
             self.skipped = skipped
-        globalvar.setProgressBar("100%")
+        self.insertRedis(self.taskID, {"progress": "100%"})
 
     def get_data(self, dataframe):
-        globalvar.setTitle("Converting data")
+        self.insertRedis(self.taskID, {"title": "Converting data"})
         data_marix = np.array(dataframe)
         self.data_marix = data_marix
         self.sample_list = list(dataframe.index)
@@ -71,7 +78,8 @@ class data_process():
                     one_hot[0,snp,0] = 0
                     one_hot[0,snp,1] = 1
                     one_hot[0,snp,2] = 1
-                globalvar.setProgressBar(f"{(((snp+1)+(sample*total_SNP)) / (total_Sample*total_SNP))*100:.2f}%")
+                if snp % 500 == 0:
+                    self.insertRedis(self.taskID, {"progress": f"{(((snp+1)+(sample*total_SNP)) / (total_Sample*total_SNP))*100:.2f}%"})
             one_hot.resize((206,206,3),refcheck=True)
             data.append(torch.from_numpy(one_hot))
 
@@ -82,8 +90,8 @@ class data_process():
     def to_dataset(self):
         skip = self.skipped
         df = pd.read_csv(self.geneotype_path, sep=r"\s+", skiprows=skip)
-        globalvar.setTitle("Mapping")
-        globalvar.setProgressBar("15.8%")
+        self.insertRedis(self.taskID, {"title": "Mapping"})
+        self.insertRedis(self.taskID, {"progress": "15.8%"})
         df['ID'] = df['#CHROM'].map(str) + '_' + df['POS'].map(
             int).map(str)
         df = df.drop(columns=[
@@ -91,10 +99,10 @@ class data_process():
         ])
 
         df = df.set_index('ID')
-        globalvar.setProgressBar("100%")
-        globalvar.setTitle("Extracting SNP information")
+        self.insertRedis(self.taskID, {"progress": "100"})
+        self.insertRedis(self.taskID, {"title": "Extracting SNP information"})
         for i in range(len(df.columns)):
-            globalvar.setProgressBar(f"{(i / len(df.columns))*100:.2f}%")
+            self.insertRedis(self.taskID, {"progress": f"{(i / len(df.columns))*100:.2f}%"})
             col = df.columns[i]
             df[col] = df[col].str[:3]
 

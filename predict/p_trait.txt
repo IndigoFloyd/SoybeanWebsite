@@ -1,6 +1,17 @@
-type:{'train': 0, 'test': 1}
-ST:{'S': 0, 'D': 1, 'N': 2}
-Ldg:{'B ': 0, 'A ': 1, 'E ': 2, 'C ': 3, 'D ': 4}
-FC:{'P': 0, 'W': 1}
-P_DENS:{'N': 0, 'Ssp': 1}
-POD:{'Bl': 0, 'TN': 1, 'Br': 2, 'Tn': 3}
+subcollection:{'Soja':0, 'Max':1}
+MG:{'VI':0, 'IV':1, 'III':2, 'X':3, 'O':4, 'IX':5, 'II':6, 'I': 7, 'V': 8, 'VIII': 9, 'VII':10}
+SQ:{'III': 0, 'IV':1, 'II':2, 'V':3, 'I':4}
+ST:{'N':0, 'S':1, 'D':2}
+Ldg:{'III':0, 'IV':1, 'II':2, 'V':3, 'I':4}
+FC:{'W':0, 'P':1}
+P_CLR:{'G':0, 'T':1}
+Mot:{'III':0, 'IV':1, 'O':2, 'II':3, 'V':4, 'I':5}
+P_FRM:{'Sa':0, 'Va':1, 'A':2, 'E':3}
+P_DENS:{'Ssp':0, 'N':1}
+POD:{'TN':0, 'Tn':1, 'Br':2, 'Bl':3}
+SC_L:{'I':0, 'S':1, 'B':2, 'D':3}
+SC_CLR:{'Rbr':0, 'Bl':1, 'Br':2, 'Lgn':3, 'Gn':4, 'Y':5}
+Stem term:{'III':0, 'IV':1, 'II':2, 'V':3, 'I':4}
+H_CLR:{'Bl':0, 'Br':1, 'Brbl':2, 'Bf':3, 'Y':4}
+PRR1:{'H':0, 'S':1, 'R':2}
+SCN3:{'S':0, 'MS':1}

@@ -1,24 +1,23 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-from flask import Flask, render_template, request, jsonify, send_file, redirect
-from pymongo import MongoClient
-import hashlib
-import globalvar
-import predict_after
-import os
-import datetime
-import shutil
+import pymongo
+from flask import Flask, render_template, request, redirect, jsonify, send_file, session, url_for
 import pandas as pd
-import smtplib
-import email
+from pymongo import MongoClient
+import shutil
+import datetime
+import hashlib
+import os
+import predict_after
+import redis
+import threading
 # 负责构造文本
 from email.mime.text import MIMEText
 # 负责将多个对象集合起来
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
+import smtplib
 
 
+# 公用变量，性状名
 traitsList = ['ALL',
  'MG',
  'ST',
@@ -43,178 +42,332 @@ traitsList = ['ALL',
  'SQ',
  'SdWgt',
  'Yield']
-filePath = ""
-fileName = ""
-page = 0
-resultDF = pd.DataFrame()
+# 用于保存结果
+taskdict = {}
+# 用于保存进度条信息
+progressdict = {}
 
+# 启动app实例
 def index():
-    return render_template('test.html')
-
+    return render_template('index.html')
 app = Flask(__name__)
+# 作用域为会话
+app.config["SESSION_COOKIE_SCOPE"] = 'session'
+# 路径为根路径
+app.config["SESSION_COOKIE_PATH"] = None
+# session数据不持久化
+app.config["SESSION_PERMANENT"] = False
 app.add_url_rule('/SoyDNGP', 'index', view_func=index)
+# 设置密钥，用于获取session信息
+app.secret_key = hashlib.md5(os.urandom(20)).hexdigest()
 
+# 重定向主页至/SoyDNGP
 @app.route('/')
 def redirect_to_index():
     return redirect('/SoyDNGP')
-
-@app.route('/SoyDNGP')
-def redirect_to():
-    return render_template('test.html')
-
+# Contact页面
 @app.route('/contact')
-def concat():
+def contact():
     return render_template('contact.html')
-
-@app.route('/Document')
-def document():
-    return render_template('Document.html')
-
-@app.route('/AboutUs')
-def AboutUs():
-    return render_template('AboutUs.html')
-
+# Learn More页面
+@app.route('/LearnMore')
+def LearnMore():
+    return render_template('learnmore.html')
+# 搜索页面
 @app.route('/Search')
 def Search():
-    return render_template('Search.html')
-
+    return render_template('lookup.html')
+# 上传页面
 @app.route('/UploadData')
-def Predict():
-    globalvar.initProgressBar()
-    return render_template('UploadData.html', df=pd.DataFrame(), total_pages=0, page=0, predict_finish=False)
+def UploadData():
+    # 初始化taskID
+    if 'taskID' not in session:
+        session['taskID'] = hashlib.md5(os.urandom(20)).hexdigest()
+    if 'page' not in session:
+        session['page'] = 0
+    if 'md5' not in session:
+        session['md5'] = ""
+    if 'join' not in session:
+        session['join'] = ""
+    if 'traits' not in session:
+        session['traits'] = []
+    return render_template('predict.html', df=pd.DataFrame())
+# 错误页面
+@app.errorhandler(400)
+def page_not_found(error):
+    return render_template('errors.html')
+
+@app.errorhandler(404)
+def page_not_found(error):
+    return render_template('errors.html')
+
+@app.errorhandler(500)
+def internal_server_error(error):
+    return render_template('errors.html')
+
+@app.errorhandler(504)
+def internal_server_error(error):
+    return render_template('errors.html')
 
 @app.route('/submit', methods=['POST'])
 def submit():
+    # 对应action /submit
     if request.method == 'POST':
+        # 从form获取ID并拆分为列表
         ID = request.form['ID'].split(';')
+        # ID列表的去重与排列
         new_ID = list(set(ID))
         new_ID.sort(key=ID.index)
-        print(new_ID)
+        # 从form获取用户选定的性状
         traits = request.form.getlist('options')
+        # 创建空白列表，用于存放查询结果
         results = []
+        # 当ID和选定的性状都不为空时
         if len(new_ID) and len(traits) != 0:
+            # 遍历ID
             for id in new_ID:
+                # 如果选定为“all”
                 if traits[0] == 'all':
+                    # 相当于选定全部性状
                     traits = traits[1:]
+                # 根据traitsList获取全部选定性状名
                 traitsNames = [traitsList[int(i)] for i in traits]
+                # 链接本地MongoDB数据库
                 client = MongoClient("mongodb://localhost:27017/")
+                # 选择test数据库
                 db = client.test
+                # 选择test下的test collection
                 collection = db.test
+                # 根据acid查询
                 rets = collection.find({'acid': id})
+                # 将ID行添加进空列表，如果查询多ID，可以由此行区分开是谁的性状
                 results.append({'trait': id, 'value': ""})
+                # 遍历查询结果
                 for i in rets:
+                    # 遍历选定的性状名
                     for j in traitsNames:
+                        # i是dict对象，使用get方法查询对应性状内容，如果没有就默认No result
                         value = i.get(j, 'No result')
+                        # 编辑json键值对
                         result = {"trait": j, "value":value}
+                        # 将结果添加进列表中
                         results.append(result)
+                # 因为不为空所以可以显示结果
                 showresult = True
+        # 有一个为空，不显示结果，查询结果为空
         else:
             results = None
             showresult = False
-        print(results)
-        return render_template('/Search.html', showresult=showresult, results=results, ID=ID)
+        return render_template('/lookup.html', showresult=showresult, results=results, ID=ID)
 
 @app.route('/upload', methods=['POST'])
 def upload():
+    # 从files获取用户上传的文件
     file = request.files.get('file')
-    content = file.read()  # 从缓存中被拿出，用byte保存
+    # 从缓存中被拿出，用byte保存
+    content = file.read()
+    # 如果内容不为空
     if content:
-        file_md5 = hashlib.md5(content).hexdigest() # 计算 MD5
+        # 计算 MD5
+        file_md5 = hashlib.md5(content).hexdigest()
+        # 将md5作为session的变量
+        session['md5'] = file_md5
+        # 记录时间，并且转换为列表，一共7个元素
         date = str(datetime.datetime.now()).split(' ')
+        # 组合新的文件名，以日期+md5组成，e.g."2023-06-06-16.41.05.379780-a8d2a9a59092c18c35f688be915a5bb6"
         newfilename = date[0] + '-' + date[1].replace(':', '.') + '-' + file_md5
+        # 如果不存在该路径
         if not os.path.exists(f"./{newfilename}"):
-            os.mkdir(f"./{newfilename}")  # 创建文件夹
-        savepath = f"./{newfilename}/" + file.filename  # 组合出路径
-        global fileName
-        fileName = file.filename
-        global filePath 
-        filePath = f"./{newfilename}/"
+            # 创建文件夹
+            os.mkdir(f"./{newfilename}")
+            # 组合出路径
+        savepath = f"./{newfilename}/" + file.filename
+        # 全局变量赋值为文件名
+        if 'fileName' not in session:
+            session['fileName'] = file.filename
+        # 组装存放目录
+        if 'filePath' not in session:
+            session['filePath'] = f"./{newfilename}/"
+        # 链接数据库
         client = MongoClient("mongodb://localhost:27017/")
+        # 打开files
         db = client.files
-        result = db.files.find_one({'md5': file_md5}) # 查询 MongoDB
+        # 查询 MongoDB
+        result = db.files.find_one({'md5': file_md5})
+        # 如果没记录，说明第一次上传
         if not result:
+            # 写入文件到本地
             with open(savepath, 'wb') as f:
                 f.write(content)
+            # 插入md5和对应存放目录记录
             db.files.insert_one({'path':savepath, 'md5': file_md5})
         else:
-            print(result['path'])
+            # 如果已经有记录就从目录将文件复制过来
             shutil.copyfile(result['path'], savepath)
         return jsonify({'errno':0, 'errmsg':'success'})
     else:
         return jsonify({'errno':1, 'errmsg':'file is empty'})
 
-@app.route('/progress')
-def update_progress():
-    progress = globalvar.getProgressBar()  # 获取当前进度
-    title = globalvar.getTitle()  # 获取进度条标题
-    return {
-        'title': title,
-        'progress': progress
-    }  # 返回进度信息
-    
+@app.route('/getArgs', methods=['POST'])
+def getArgs():
+    if request.method == "POST":
+        # 获取用户是否同意加入数据库
+        data = request.json
+        join = data.get("join")
+        # 从form获取性状id
+        traits = data.get('options')
+        session['join'] = join
+        session['traits'] = traits
+
 @app.route('/Predict', methods=['GET', 'POST'])
-def predict_():
+def JoinOrNot():
     if request.method == 'POST':
-        globalvar.initProgressBar()
-        traits = request.form.getlist('options')
+        # 获取日期与md5，组装成taskID用以辨别不同请求
+        date = str(datetime.datetime.now()).split(' ')
+        # 进度条数据更新函数，需要输入taskID作为参数
+        def getprogress(taskID):
+            # 创建redis的pubsub对象
+            ps = r.pubsub()
+            # 订阅taskID频道
+            ps.subscribe(taskID)
+            # 将进度条字典设置为全局变量
+            global progressdict
+            # 将进度条字典对应的taskID初始化
+            progressdict[taskID] = {"title": "", "progress": "", "predict_finish": False}
+            # 如果监听到了频道中发布的信息
+            for item in ps.listen():
+                # data=1代表成功订阅，是无关信息所以忽略
+                if item['data'] != 1:
+                    # 将data由str转为dict（原格式例如'{"title": ""}', '{"progress": ""}'）
+                    data = eval(item['data'])
+                    # 因为发布的消息是单条的，只包含标题或进度，因此先判断是哪一种，然后更新到字典中，由update_progress组装好发给前端
+                    if [k for k in data.keys()][0] == 'title':
+                        # 获取title
+                        title = data['title']
+                        # 更新title
+                        progressdict[taskID]['title'] = title
+                    # 更新进度条
+                    elif [k for k in data.keys()][0] == 'progress':
+                        # 获取progress
+                        progress = data['progress']
+                        # 更新progress
+                        progressdict[taskID]['progress'] = progress
+            # 更改predict_finish状态
+            progressdict[taskID]['predict_finish'] = session['predict_finish']
+        # 设置线程，通过异步方式更新进度条信息
+        thread = threading.Thread(target=getprogress, args=(session['taskID'], ), daemon=True)
+        # 开始线程
+        thread.start()
+        # 性状为空就设置worker为None
         worker = None
-        if len(traits) != 0:
-            if traits[0] != 'all':
-                traitsNames = [traitsList[int(i)] for i in traits]
-                print(traitsNames)
-                worker = predict_after.predict(filePath + fileName, traitsNames, filePath, if_all=False)
-
+        # 如果性状不为空
+        print(session['traits'])
+        if len(session['traits']) != 0:
+            # 判断是否点击了全选，并更改traitsNames
+            if session['traits'][0] != 'all':
+                print(session['filePath'] + session['fileName'])
+                traitsNames = [traitsList[int(i)] for i in session['traits']]
+                # 开始预测
+                worker = predict_after.predict(session['filePath'] + session['fileName'], traitsNames,
+                                               session['filePath'], r, taskID=session['taskID'],
+                                               if_all=False)
             else:
-                traits = traits[1:]
+                traits = session['traits'][1:]
                 traitsNames = [traitsList[int(i)] for i in traits]
-                worker = predict_after.predict(filePath + fileName, [], filePath, if_all=False)
-        global resultDF
+                worker = predict_after.predict(session['filePath'] + session['fileName'], traitsNames,
+                                               session['filePath'], r, taskID=session['taskID'],
+                                               if_all=False)
+        # 设置predict_finish状态为True，并更新到全局变量
+        session['predict_finish'] = True
+        global progressdict
+        progressdict[session['taskID']]['predict_finish'] = True
+        # 获取结果
+        resultDF = worker.Result
         # resultDF = pd.read_csv(r"C:\Users\PinkFloyd\OneDrive\桌面\predict.csv")
-        if worker.is_finished:
-            resultDF = worker.Result
-        else:
-            print("not finished yet")
+        # 声明任务的全局变量
+        global taskdict
+        # 初始化
+        taskdict[session['taskID']] = {"result": pd.DataFrame(), "page": 0, "total_pages": 0, "col_names": []}
+        # 更改结果
+        taskdict[session['taskID']]['result'] = worker.Result
+        # 设置每页可以显示的结果数
         rows_per_page = 3
-        total_pages = len(resultDF) // rows_per_page + 1
-        global page
-        page = 1
-        start_row = (page - 1) * rows_per_page
+        # 计算总共的页数
+        taskdict[session['taskID']]['total_pages'] = len(resultDF) // rows_per_page + 1
+        # 设置当前页面数
+        taskdict[session['taskID']]['page'] = 1
+        # 计算起始行数
+        start_row = (taskdict[session['taskID']]['page'] - 1) * rows_per_page
+        # 设置结束行数（当前页面显示的最后一行在resultDF中是第几行）
         end_row = start_row + rows_per_page
+        # 使用行号切片resultDF
         df_slice = resultDF.iloc[start_row:end_row]
-        col_names = resultDF.columns.tolist()
-        return render_template('UploadData.html', df=df_slice, total_pages=total_pages, page=page, predict_finish=True, col_names = col_names)
-    return render_template('UploadData.html', df=pd.DataFrame(), total_pages=0, page=0, predict_finish=False)
+        # 获取表单的列名
+        taskdict[session['taskID']]['col_names'] = resultDF.columns.tolist()
+        # 如果用户同意加入
+        if session['join'] == 'yes':
+            # 链接本地MongoDB数据库
+            client = MongoClient("mongodb://localhost:27017/")
+            # 选择test数据库
+            db = client.test
+            # 选择test下的test collection
+            collection = db.test
+            # 读取df
+            for i in range(len(resultDF)):
+                # 读取每行数据
+                row = resultDF.iloc[i, :]
+                # 读取ID
+                seedID = row['acid']
+                # 创建字典
+                seedDict = {"acid": seedID}
+                # 添加性状内容（col_names[0]是id）
+                for name in taskdict[session['taskID']]['col_names'][1:]:
+                    trait = name
+                    value = f"{row[trait]}(predict, uploaded at{date[0] + '-' + date[1].replace(':', '.')})"
+                    # 组装字典
+                    seedDict[trait] = value
+                # 添加样本
+                collection.insert_one(seedDict)
+        elif session['join'] == 'no':
+            pass
+        return render_template('predict.html', df=df_slice, total_pages=taskdict[session['taskID']]['total_pages'],
+                               page=taskdict[session['taskID']]['page'],
+                               predict_finish=session['predict_finish'],
+                               col_names=taskdict[session['taskID']]['col_names'])
 
+@app.route("/progress")
+def update_progress():
+    return progressdict[session['taskID']]
 
 
 @app.route('/pagenext')
 def pagenext():
-    global page
-    page += 1
+    taskdict[session['taskID']]['page'] += 1
     rows_per_page = 3
-    total_pages = len(resultDF) // rows_per_page + 1
-    start_row = (page - 1) * rows_per_page
+    resultDF = taskdict[session['taskID']]['result']
+    start_row = (taskdict[session['taskID']]['page'] - 1) * rows_per_page
     end_row = start_row + rows_per_page
     df_slice = resultDF.iloc[start_row:end_row]
-    col_names = resultDF.columns.tolist()
-    return render_template('UploadData.html', df=df_slice, total_pages=total_pages, page=page, predict_finish=False, col_names = col_names)
+    return render_template('predict.html', df=df_slice, total_pages=taskdict[session['taskID']]['total_pages'],
+                           page=taskdict[session['taskID']]['page'],
+                           predict_finish=session['predict_finish'], col_names=taskdict[session['taskID']]['col_names'])
 
 @app.route('/pageprev')
 def pageprev():
-    global page
-    page -= 1
+    taskdict[session['taskID']]['page'] -= 1
     rows_per_page = 3
-    total_pages = len(resultDF) // rows_per_page + 1
-    start_row = (page - 1) * rows_per_page
+    resultDF = taskdict[session['taskID']]['result']
+    start_row = (session['page'] - 1) * rows_per_page
     end_row = start_row + rows_per_page
     df_slice = resultDF.iloc[start_row:end_row, :]
-    col_names = resultDF.columns.tolist()
-    return render_template('UploadData.html', df=df_slice, total_pages=total_pages, page=page, predict_finish=False, col_names = col_names)
+    return render_template('predict.html', df=df_slice, total_pages=taskdict[session['taskID']]['total_pages'],
+                           page=taskdict[session['taskID']]['page'],
+                           predict_finish=session['predict_finish'], col_names=taskdict[session['taskID']]['col_names'])
 
 
 @app.route('/download')
 def download_file():
-    return send_file(f'{filePath}/predict.csv')
+    return send_file(f'{session["filePath"]}/predict.csv')
     # return send_file(rf"D:\Projects\website\soybean\2023-05-30-3.3751.402995-a8d2a9a59092c18c35f688be915a5bb6\predict.csv")
 
 
@@ -226,7 +379,7 @@ def page_not_found(error):
 def page_not_found(error):
     return render_template('errors.html')
 
-@app.errorhandler(500)   
+@app.errorhandler(500)
 def internal_server_error(error):
     return render_template('errors.html')
 
@@ -252,14 +405,15 @@ def send():
         stp.connect(mail_host, 587)
         stp.login(mail_sender, mail_license)
         # 发送邮件，传递参数1：发件人邮箱地址，参数2：收件人邮箱地址，参数3：把邮件内容格式改为str
-        # stp.sendmail(mail_sender, mail_receivers, mail.as_string())
+        stp.sendmail(mail_sender, mail_receivers, mail.as_string())
         stp.quit()
-    return render_template('thanks.html')
-
-if __name__ == '__main__':
-    app.run(host="0.0.0.0")  # 实时更改
+    return render_template('thanksforcontact.html')
 
 
 
-
-
+if __name__ == "__main__":
+    # 创建一个redis实例，用于进度条更新
+    host = "127.0.0.1"
+    port = "6379"
+    r = redis.StrictRedis(host=host, port=port, decode_responses=True)
+    app.run(host="0.0.0.0", port=8080)

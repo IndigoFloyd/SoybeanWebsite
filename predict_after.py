@@ -6,20 +6,18 @@ from torch.utils.data import DataLoader
 # from AlexNet_206_p import *
 # from AlexNet_206 import *
 import time
-import requests
-import schedule
-import globalvar
+import json
 
 class predict():
 
     TOKENIZERS_PARALLELISM= False
-    def __init__(self,genotype_path,trait_for_predict,save_path,if_all = False):
-        schedule.every(0.5).seconds.do(requests.get, 'http://127.0.0.1:5000/progress')
+    def __init__(self, genotype_path, trait_for_predict, save_path, Redis, taskID="", if_all = False):
+        self.Redis = Redis
         self.path = r'./predict/weight'
         self.Result = pd.DataFrame()
-        self.is_finished = False
+        self.taskID = taskID
         #构建需要预测的性状列表
-        n_trait = ['protein', 'oil', 'SdWgt', 'Yield', 'R8', 'R1', 'Hgt']
+        n_trait = ['protein', 'oil', 'SdWgt', 'Yield', 'R8', 'R1', 'Hgt', 'Linoleic', 'Linolenic']
         p_trait = ['ST', 'FC', 'P_DENS', 'POD']
         if not if_all:
             self.n_trait = []
@@ -46,8 +44,10 @@ class predict():
         self.p_data = [i.strip() for i in p_dict]
         self.n_data = np.array(max_min.iloc[:]).tolist()
         self.forward()
-        while not self.is_finished:
-            schedule.run_pending()
+
+    def insertRedis(self, taskID, jsonStr):
+        msg = json.dumps(jsonStr)
+        self.Redis.publish(taskID, msg)
 
     def timer(self):
         return time.time()
@@ -55,7 +55,7 @@ class predict():
     def forward(self):
         t1 = self.timer()
         #数据预处理
-        data_list = data_process(self.vcf_path)
+        data_list = data_process(self.vcf_path, self.Redis, self.taskID)
         #返回处理后的数据以及需要预测的样本列表
         predict_data,sample_list = data_list.to_dataset()
         #构造迭代器
@@ -64,13 +64,13 @@ class predict():
         t2 = self.timer()
         # print(f'Data process has done! Use time:{t2-t1}','\n','Start data predict')
         #对性状列表中的所有性状进行预测
-        for index,(feature) in enumerate(loader):
+        for index, (feature) in enumerate(loader):
             feature = feature.to('cuda:0')
             het = []
-            globalvar.setProgressBar(f"{(index+1) / len(sample_list) * 100:.2f}%")
+            self.insertRedis(self.taskID, {"progress": f"{(index+1) / len(sample_list) * 100:.2f}%"})
             # print(f"({index+1} / {len(sample_list)})-------{(index+1) / len(sample_list) * 100:.2f}%")
             for trait in self.trait_list:
-                globalvar.setTitle(f"Predicting: Sample {index + 1} ({index+1} / {len(sample_list)})'s trait {trait}")
+                self.insertRedis(self.taskID, {"title": f"Predicting: Sample {index + 1} ({index+1} / {len(sample_list)})'s trait {trait}"})
                 weight_path = os.path.join(self.path, f'{trait}_best.pt')
                 net = torch.load(weight_path, map_location="cuda:0")
                 net.eval()
@@ -95,8 +95,8 @@ class predict():
         traitnum = 0
         for trait in self.trait_list:
             traitnum += 1
-            globalvar.setTitle(f"Restoring trait data: {trait}")
-            globalvar.setProgressBar(f"{(traitnum / len(self.trait_list) * 100):.2f}%")
+            self.insertRedis(self.taskID, {"title": f"Restoring trait data: {trait}"})
+            self.insertRedis(self.taskID, {"progress": f"{(traitnum / len(self.trait_list) * 100):.2f}%"})
             #质量性状归一化数据进行还原
             if trait in self.n_trait:
                 for i in self.n_data:
@@ -118,9 +118,8 @@ class predict():
         result = result.reset_index()
         self.Result = result
         print(self.Result.head())
-        self.is_finished = True
         result.to_csv(os.path.join(self.save_dir, 'predict.csv'), index=False)
-        globalvar.setTitle(f"Finish")
-        globalvar.setProgressBar(f"100%")
+        self.insertRedis(self.taskID, {"title": f"Finish"})
+        self.insertRedis(self.taskID, {"progress": f"100%"})
         t4 = self.timer()
         print(f'Restore has done! Use time:{t4-t3} Result has saved in save path')
