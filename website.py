@@ -73,13 +73,6 @@ def Search():
 # 上传页面
 @app.route('/UploadData')
 def UploadData():
-    # 取一个线程
-    r = redis.Redis(connection_pool=redis_pool)
-    # 初始化taskID
-    taskID = hashlib.md5(os.urandom(20)).hexdigest()
-    session['taskID'] = taskID
-    task_session = {"taskID": taskID, "md5": "", "join": "", "traits": "", "filePath": "", "fileName": "", "predict_finish": False}
-    r.set("task_session", json.dumps({taskID: task_session}))
     return render_template('predict.html', df=pd.DataFrame())
 
 # 错误页面
@@ -152,10 +145,13 @@ def submit():
 
 @app.route('/upload', methods=['POST'])
 def upload():
-    # 取一个线程
+    # 取一个线程，每次上传就相当于建立一个新的task
     r = redis.Redis(connection_pool=redis_pool)
-    # 取回session作为局部变量
-    task_session_ = json.loads(r.get("task_session"))[session['taskID']]
+    # 初始化taskID
+    taskID = hashlib.md5(os.urandom(20)).hexdigest()
+    session['taskID'] = taskID
+    task_session_ = {"taskID": taskID, "md5": "", "join": "", "traits": "", "filePath": "", "fileName": "",
+                    "predict_finish": False}
     # 从files获取用户上传的文件
     file = request.files.get('file')
     # 从缓存中被拿出，用byte保存
@@ -181,7 +177,7 @@ def upload():
         # 组装存放目录
         task_session_['filePath'] = f"./{newfilename}/"
         # 上传session，更新filePath、fileName和md5
-        r.set("task_session", json.dumps({session['taskID']: task_session_}))
+        r.set("task_session", json.dumps({taskID: task_session_}))
         # 链接数据库
         client = MongoClient("mongodb://localhost:27017/")
         # 打开files
@@ -354,7 +350,11 @@ def pageprev():
 
 @app.route('/download')
 def download_file():
-    return send_file(f'{session["filePath"]}/predict.csv')
+    # 取一个线程
+    r = redis.Redis(connection_pool=redis_pool)
+    # 取回taskdict
+    task_session_ = json.loads(r.get('task_session'))[session['taskID']]
+    return send_file(f'{task_session_["filePath"]}/predict.csv')
     # return send_file(rf"D:\Projects\website\soybean\2023-05-30-3.3751.402995-a8d2a9a59092c18c35f688be915a5bb6\predict.csv")
 
 
