@@ -22,3 +22,7 @@ The structure is as follows:\
 &emsp;**--n_trait.txt**: Contains quantitative traits.\
 &emsp;**--p_trait.txt**: Contains qualitative traits.\
 &emsp;**--snp.txt**: Contains mutation sites of Single-nucleotide polymorphism to be matched.\
+# How to deploy it
+**1.Needed environment**
+&emsp;Needed packages are listed in the **requirements.txt**, use **pip install -r requirements.txt** to install them.\
+&emsp;For softwares this project depends on, **Redis** and **MongoDB** are significant. Redis takes in charge of "global variable "
