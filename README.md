@@ -25,9 +25,9 @@ The structure is as follows:\
 # Diagrams
 In order to demonstrate the operation principle of web pages more clearly, we have drawn two UML diagrams.
 ## The component diagram
-![image](Component Diagram.png)
+![image](https://github.com/IndigoFloyd/SoybeanWebsite/blob/main/Component%20Diagram.png)
 ## The sequence diagram
-![image](Sequence Diagram.png)
+![image](https://github.com/IndigoFloyd/SoybeanWebsite/blob/main/Sequence%20Diagram.png)
 # How to deploy it
 ## Needed environment
 1.&emsp;Needed packages are listed in the **requirements.txt**, use ```pip install -r requirements.txt``` to install them.\
