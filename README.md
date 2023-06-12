@@ -22,6 +22,12 @@ The structure is as follows:\
 &emsp;**--n_trait.txt**: Contains quantitative traits.\
 &emsp;**--p_trait.txt**: Contains qualitative traits.\
 &emsp;**--snp.txt**: Contains mutation sites of Single-nucleotide polymorphism to be matched.\
+# Diagrams
+In order to demonstrate the operation principle of web pages more clearly, we have drawn two UML diagrams.
+## The component diagram
+![image](Component Diagram.png)
+## The sequence diagram
+![image](Sequence Diagram.png)
 # How to deploy it
 ## Needed environment
 1.&emsp;Needed packages are listed in the **requirements.txt**, use ```pip install -r requirements.txt``` to install them.\
@@ -59,3 +65,4 @@ net:
 # 20 workers and 300s timeout
 gunicorn -w 20 --preload website:app --time 300
 ```
+
