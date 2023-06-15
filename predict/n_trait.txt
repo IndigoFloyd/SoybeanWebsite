@@ -1,7 +1,7 @@
 protein;max;57.9;min;31.7
 oil;max;25.4;min;7.5
 Palmitic;max;20.4;min;5.71
-Steartic;max;10.6;min;1.1
+Stearic;max;10.6;min;1.1
 Oleic;max;58.73;min;8.8
 Linoleic;max;65.85;min;23.96
 Linolenic;max;24.5;min;2.7

@@ -31,15 +31,20 @@ traitsList = ['ALL',
  'oil',
  'Linoleic',
  'Linolenic',
- 'eno',
+ 'Stem term',
  'R1',
  'R8',
  'Hgt',
- 'Mat',
+ 'Mot',
  'Ldg',
  'SQ',
  'SdWgt',
- 'Yield']
+ 'Yield',
+ 'Oleic',
+ 'Palmitic',
+ 'PRR1',
+ 'SCN3',
+ 'Stearic']
 
 # 启动app实例
 def index():
@@ -226,7 +231,7 @@ def JoinOrNot():
         # 如果性状不为空
         if len(task_session_['traits']) != 0:
             # 判断是否点击了全选，并更改traitsNames
-            if task_session_['traits'][0] != 'all':
+            if task_session_['traits'][-1] != 'all':
                 print(task_session_['filePath'] + task_session_['fileName'])
                 traitsNames = [traitsList[int(i)] for i in task_session_['traits']]
                 # 开始预测
@@ -234,7 +239,7 @@ def JoinOrNot():
                                                task_session_['filePath'], r, taskID=session['taskID'],
                                                if_all=False)
             else:
-                traits = task_session_['traits'][1:]
+                traits = task_session_['traits'][:-1]
                 traitsNames = [traitsList[int(i)] for i in traits]
                 predict_after.predict(task_session_['filePath'] + task_session_['fileName'], traitsNames,
                                                task_session_['filePath'], r, taskID=session['taskID'],

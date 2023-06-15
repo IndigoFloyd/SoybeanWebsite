@@ -94,8 +94,6 @@
               <table class="table table-checkable">
                 <tr>
                 <tr>
-                  <td class="text-white"><input class="form-check-input" type="checkbox" name="options" id="checkall"
-                      value="all" title="All traits will be predicted." data-bs-toggle="checkbox"> ALL</td>
 
                   <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="1"
                       title="Maturity group (MATGROUP) Maturity evaluation. 000 = earliest, X = latest."
@@ -113,14 +111,13 @@
 
                   <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="5"
                       title="Pubescence form (PUBFORM) Pubescence form." data-bs-toggle="checkbox"> P_FRM</td>
-
-                </tr>
-                <tr>
                   <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="6"
                       title="Pubescence density (PUBDENSITY) Pubescence density." data-bs-toggle="checkbox"> PDENS</td>
 
                   <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="7"
                       title="Pod color (PODCOLOR) Pod color." data-bs-toggle="checkbox"> POD</td>
+                </tr>
+                <tr>
 
                   <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="8"
                       title="Seed coat luster (SCOATLUST) Seed coat luster." data-bs-toggle="checkbox"> SC_L</td>
@@ -133,11 +130,9 @@
 
                   <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="11"
                       title="Protein (PROTEIN) Protein percent of dry weight of seed. Ex: 26.8, 49.9"
-                      data-bs-toggle="checkbox"> protein</td>
-                </tr>
-                <tr>
+                      data-bs-toggle="checkbox"> Protein</td>
                   <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="12"
-                      title="Oil (OIL) Oil percent of dry weight of seed. Ex: 16.4, 19.2" data-bs-toggle="checkbox"> oil
+                      title="Oil (OIL) Oil percent of dry weight of seed. Ex: 16.4, 19.2" data-bs-toggle="checkbox"> Oil
                   </td>
 
                   <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="13"
@@ -148,8 +143,11 @@
                       title="Linolenic (LINOLENIC) Linolenic acid percent of oil. Ex: 6.3, 11.5"
                       data-bs-toggle="checkbox"> Linolenic</td>
 
-                  <!-- <td class="text-white"><input class="form-check-input" type="checkbox" name="options"
-                                    value="15" data-bs-toggle="checkbox"> eno</td> -->
+                </tr>
+                <tr>
+
+                  <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="15"
+                      data-bs-toggle="checkbox"> Stem term</td>
 
                   <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="16"
                       title="Flowering (FLOWERDATE) Date that 50% of the plants have begun to flower; expressed as month (1 or 2 digits) and day (2 digits). Descriptor is a numeric field. Blank value means no data. Ex: 806"
@@ -158,14 +156,18 @@
                   <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="17"
                       title="Maturity date (MATDATE) Date that 95% of the pods have reached final color; expressed as month (1 or 2 digits) and day (2 digits). Blank value means no data. Ex: 1009"
                       data-bs-toggle="checkbox"> R8</td>
-                </tr>
-                <tr>
+
                   <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="18"
                       title="Height (HEIGHT) Plant height from ground to stem tip in centimeters measured at maturity. Descriptor is a numeric field. 999 = PROCUMBENT
 " data-bs-toggle="checkbox"> Hgt</td>
 
                   <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="19"
-                      title="MATURITY LOCUS E3 (LOCUS_E3) Maturity locus E3 (GmPhyA3)" data-bs-toggle="checkbox"> Mat
+                      title="Score based on percentage of seedcoat with dark pigment as follows: 
+                      1 = no mottling 
+                      2 = 1 to 10% 
+                      3 = 10 to 25% 
+                      4 = 25 to 50% 
+                      5 = >50% " data-bs-toggle="checkbox"> Mot
                   </td>
 
                   <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="20"
@@ -176,6 +178,9 @@
                       title="Seed quality (SEEDQUAL) Visual quality evaluation considering wrinkling, defective seed coat, greenish or diseased seeds. Descriptor is a numeric field. Ex: 1.6. 1.0 = GOOD, 5.0 = POOR."
                       data-bs-toggle="checkbox"> SQ</td>
 
+                </tr>
+                <tr>
+                  
                   <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="22"
                       title="Seed weight (SEEDWEIGHT) Weight of 100 seeds in grams (g)." data-bs-toggle="checkbox">
                     SdWgt</td>
@@ -183,6 +188,28 @@
                   <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="23"
                       title="Yield (YIELD) Yield in megagrams per hectare (Mg/ha) at 13% seed moisture. Ex: 2.21, 3.05"
                       data-bs-toggle="checkbox"> Yield</td>
+
+                  <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="24"
+                      title="Oleic's percentage of total fatty acids" data-bs-toggle="checkbox"> Oleic</td>
+
+                  <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="25"
+                      title="Palmitic's percentage of total fatty acids" data-bs-toggle="checkbox"> Palmitic</td>
+
+                  <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="26"
+                      title="" data-bs-toggle="checkbox"> PRR1</td>
+
+                  <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="27"
+                      title="" data-bs-toggle="checkbox"> SCN3</td>
+
+                  <td class="text-white"><input class="form-check-input" type="checkbox" name="options" value="28"
+                      title="Stearic's percentage of total fatty acids" data-bs-toggle="checkbox"> Stearic</td>
+
+                </tr>
+                <tr>
+
+                  <td class="text-white"><input class="form-check-input" type="checkbox" name="options" id="checkall"
+                      value="all" title="All traits will be predicted." data-bs-toggle="checkbox"> ALL</td>
+
                 </tr>
               </table>
 

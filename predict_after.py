@@ -18,8 +18,8 @@ class predict():
         self.progressdict = {"title": "", "progress": "", "predict_finish": False}
         self.taskdict = {"result": pd.DataFrame(), "page": 0, "total_pages": 0, "col_names": []}
         #构建需要预测的性状列表
-        n_trait = ['protein', 'oil', 'SdWgt', 'Yield', 'R8', 'R1', 'Hgt', 'Linoleic', 'Linolenic']
-        p_trait = ['ST', 'FC', 'P_DENS', 'POD']
+        n_trait = ['protein', 'oil', 'SdWgt', 'Yield', 'R8', 'R1', 'Hgt', 'Linoleic', 'Linolenic', 'Palmitic', 'Stearic', 'Oleic']
+        p_trait = ['MG', 'SQ', 'ST', 'Ldg', 'P_CLR', 'Mot', 'P_FRM', 'SC_L', 'SC_CLR', 'Stem term', 'H_CLR', 'PRR1', 'SCN3', 'FC', 'P_DENS', 'POD']
         if not if_all:
             self.n_trait = []
             self.p_trait = []
