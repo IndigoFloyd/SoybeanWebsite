@@ -379,7 +379,7 @@ def send():
         print(userName, userEmail, userContent)
         mail_sender = '1135431747@qq.com'
         mail_host = 'smtp.qq.com'
-        mail_license = 'dgyqkhmkgirjigij'
+        mail_license = 'asidohqwoj1p2je'
         mail_receivers = ['1135431747@qq.com', 'wangxt881@gmail.com']  # 接收邮件，可设置为你的QQ邮箱或者其他邮箱
         mail = MIMEMultipart('related')
         mail['From'] = f"Website User<{mail_sender}>"  # 发送者
