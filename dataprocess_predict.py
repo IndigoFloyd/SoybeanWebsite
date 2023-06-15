@@ -5,6 +5,7 @@ import torch
 import json
 import subprocess
 import re
+import math
 
 
 class data_process():
@@ -116,10 +117,31 @@ class data_process():
             self.insertRedis()
             col = df.columns[i]
             df[col] = df[col].str[:3]
-
         df = df.transpose()
+        vcf_pos = df.columns.to_list()
+        self.progressdict['title'] = "Filling the missing pos"
+        self.progressdict['progress'] = "23.4%"
+        self.insertRedis()
+        temp = set(self.pos_list).difference(set(vcf_pos))
+        if len(temp):
+            df2 = np.full((df.shape[0], len(temp)), './.')
+            df2 = pd.DataFrame(df2, columns=temp)
+            df2.index = df.index.to_list()
+            df = pd.concat([df, df2], axis=1)
+        self.progressdict['progress'] = "100%"
+        self.insertRedis()
+        # for pos in range(len(self.pos_list)):
+        #     if pos % 500 == 0:
+        #         self.progressdict['progress'] = f"{pos / len(self.pos_list) * 100:.2f}%"
+        #         self.insertRedis()
+        #     if self.pos_list[pos] in vcf_pos:
+        #         continue
+        #     else:
+        #         df[self.pos_list[pos]] = alt
         print(f"df shape {df.shape}")
-        predict_df = df[self.pos_list]     
+        predict_df = df[self.pos_list]
+        self.progressdict['progress'] = "100%"
+        self.insertRedis()
         predict_data,sample_list= self.get_data(predict_df)
 
         return predict_data,sample_list
