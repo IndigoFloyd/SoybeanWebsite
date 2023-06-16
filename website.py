@@ -127,7 +127,8 @@ def submit():
                 # 选择test下的test collection
                 collection = db.test
                 # 根据acid查询
-                rets = collection.find({'acid': id})
+                print(id)
+                rets = collection.find({"$or": [{'acid': id}, {"CommonName": id}]})
                 # 将ID行添加进空列表，如果查询多ID，可以由此行区分开是谁的性状
                 results.append({'trait': id, 'value': ""})
                 # 遍历查询结果
@@ -384,7 +385,7 @@ def send():
         print(userName, userEmail, userContent)
         mail_sender = '1135431747@qq.com'
         mail_host = 'smtp.qq.com'
-        mail_license = 'asidohqwoj1p2je'
+        mail_license = 'dgyqkhmkgirjigij'
         mail_receivers = ['1135431747@qq.com', 'wangxt881@gmail.com']  # 接收邮件，可设置为你的QQ邮箱或者其他邮箱
         mail = MIMEMultipart('related')
         mail['From'] = f"Website User<{mail_sender}>"  # 发送者
