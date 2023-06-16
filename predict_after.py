@@ -17,6 +17,7 @@ class predict():
         self.taskID = taskID
         self.progressdict = {"title": "", "progress": "", "predict_finish": False}
         self.taskdict = {"result": pd.DataFrame(), "page": 0, "total_pages": 0, "col_names": []}
+        self.IsMissing = False
         #构建需要预测的性状列表
         n_trait = ['protein', 'oil', 'SdWgt', 'Yield', 'R8', 'R1', 'Hgt', 'Linoleic', 'Linolenic', 'Palmitic', 'Stearic', 'Oleic']
         p_trait = ['MG', 'SQ', 'ST', 'Ldg', 'P_CLR', 'Mot', 'P_FRM', 'SC_L', 'SC_CLR', 'Stem term', 'H_CLR', 'PRR1', 'SCN3', 'FC', 'P_DENS', 'POD']
@@ -63,6 +64,7 @@ class predict():
         data_list = data_process(self.vcf_path, self.Redis, self.taskID)
         #返回处理后的数据以及需要预测的样本列表
         predict_data,sample_list = data_list.to_dataset()
+        self.IsMissing = data_list.IsMissing
         #构造迭代器
         loader = DataLoader(data_loader(predict_data),batch_size=1,shuffle=False,num_workers=0)
         result = {}

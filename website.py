@@ -230,19 +230,20 @@ def JoinOrNot():
         # 取回session
         task_session_ = json.loads(r.get("task_session"))[session['taskID']]
         # 如果性状不为空
+        worker = None
         if len(task_session_['traits']) != 0:
             # 判断是否点击了全选，并更改traitsNames
             if task_session_['traits'][-1] != 'all':
                 print(task_session_['filePath'] + task_session_['fileName'])
                 traitsNames = [traitsList[int(i)] for i in task_session_['traits']]
                 # 开始预测
-                predict_after.predict(task_session_['filePath'] + task_session_['fileName'], traitsNames,
+                worker = predict_after.predict(task_session_['filePath'] + task_session_['fileName'], traitsNames,
                                                task_session_['filePath'], r, taskID=session['taskID'],
                                                if_all=False)
             else:
                 traits = task_session_['traits'][:-1]
                 traitsNames = [traitsList[int(i)] for i in traits]
-                predict_after.predict(task_session_['filePath'] + task_session_['fileName'], traitsNames,
+                worker = predict_after.predict(task_session_['filePath'] + task_session_['fileName'], traitsNames,
                                                task_session_['filePath'], r, taskID=session['taskID'],
                                                if_all=False)
         # 设置predict_finish状态为True，并更新到全局变量
@@ -282,21 +283,35 @@ def JoinOrNot():
             # 选择test下的test collection
             collection = db.test
             # 读取df
+            resultList = []
             for i in range(len(resultDF)):
                 # 读取每行数据
                 row = resultDF.iloc[i, :]
                 # 读取ID
                 seedID = row['acid']
+                # 获取Common Name
+                rets = collection.find({'acid': seedID})
+                CommonName = ""
+                for ret in rets:
+                    CommonName = ret.get('CommonName', "")
                 # 创建字典
-                seedDict = {"acid": seedID}
+                if len(CommonName):
+                    seedDict = {"acid": seedID, "CommonName": CommonName}
+                else:
+                    seedDict = {"acid": seedID}
                 # 添加性状内容（col_names[0]是id）
                 for name in taskdict['col_names'][1:]:
                     trait = name
-                    value = f"{row[trait]}(predict, uploaded at{date[0] + '-' + date[1].replace(':', '.')})"
+                    # 判断是不是缺失值，做一下特殊标记
+                    if worker.IsMissing:
+                        value = f"**{row[trait]}**(predict, uploaded at {date[0] + '-' + date[1].replace(':', '.')})"
+                    else:
+                        value = f"{row[trait]}(predict, uploaded at {date[0] + '-' + date[1].replace(':', '.')})"
                     # 组装字典
                     seedDict[trait] = value
                 # 添加样本
-                collection.insert_one(seedDict)
+                resultList.append(seedDict)
+            collection.insert_many(resultList)
         elif task_session_['join'] == 'no':
             pass
         return render_template('result.html', df=df_slice, total_pages=taskdict['total_pages'],

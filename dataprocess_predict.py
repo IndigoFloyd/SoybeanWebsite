@@ -12,6 +12,7 @@ class data_process():
 
     def __init__(self, genenotype_file, Redis, taskID):
         self.Redis = Redis
+        self.IsMissing = False
         self.taskID = taskID
         self.progressdict = {"title": "", "progress": "", "predict_finish": False}
         pos_list = pd.read_csv(r"./predict/snp.txt")
@@ -119,17 +120,18 @@ class data_process():
             df[col] = df[col].str[:3]
         df = df.transpose()
         vcf_pos = df.columns.to_list()
-        self.progressdict['title'] = "Filling the missing pos"
-        self.progressdict['progress'] = "23.4%"
-        self.insertRedis()
         temp = set(self.pos_list).difference(set(vcf_pos))
         if len(temp):
+            self.progressdict['title'] = "Filling the missing pos"
+            self.progressdict['progress'] = "23.4%"
+            self.insertRedis()
+            self.IsMissing = True
             df2 = np.full((df.shape[0], len(temp)), './.')
             df2 = pd.DataFrame(df2, columns=temp)
             df2.index = df.index.to_list()
             df = pd.concat([df, df2], axis=1)
-        self.progressdict['progress'] = "100%"
-        self.insertRedis()
+            self.progressdict['progress'] = "100%"
+            self.insertRedis()
         # for pos in range(len(self.pos_list)):
         #     if pos % 500 == 0:
         #         self.progressdict['progress'] = f"{pos / len(self.pos_list) * 100:.2f}%"
