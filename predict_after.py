@@ -66,7 +66,12 @@ class predict():
         predict_data,sample_list = data_list.to_dataset()
         self.IsMissing = data_list.IsMissing
         #构造迭代器
+        current = torch.cuda.memory_allocated()
+        print(f"DataLoader类实例化前的显存占用:{current/1024/1024:.2f}")
         loader = DataLoader(data_loader(predict_data),batch_size=1,shuffle=False,num_workers=0)
+        later = torch.cuda.memory_allocated()
+        print(f"DataLoader类实例化后的显存占用:{later/1024/1024:.2f}")
+        print(f"DataLoader类实例化的显存占用:{(later-current)/1024/1024:.2f}")
         result = {}
         t2 = self.timer()
         # print(f'Data process has done! Use time:{t2-t1}','\n','Start data predict')
@@ -81,7 +86,12 @@ class predict():
                 self.progressdict['title'] = f"Predicting: Sample {index + 1} ({index+1} / {len(sample_list)})'s trait {trait}"
                 self.insertRedis()
                 weight_path = os.path.join(self.path, f'{trait}_best.pt')
+                current = torch.cuda.memory_allocated()
+                print(f"模型加载前的显存占用:{current/1024/1024:.2f}")
                 net = torch.load(weight_path, map_location="cuda:0")
+                later = torch.cuda.memory_allocated()
+                print(f"模型加载后的显存占用:{later/1024/1024:.2f}")
+                print(f"模型加载的显存占用:{(later-current)/1024/1024:.2f}")
                 net.eval()
                 y_het = net(feature)
                 #若为质量性状，则返回预测值中概率最大一类的索引
@@ -91,8 +101,12 @@ class predict():
                     het.append(y_het[0])
                 else:
                     het.append(y_het.to('cpu').detach().numpy()[0][0])
+                del net
+                del y_het
+                torch.cuda.empty_cache()
             #构建结果字典，键值对： 样本：[性状1，性状2……]
             result[sample_list[index]] = het
+            torch.cuda.empty_cache()
         t3 = self.timer()
         # print(r'Predict has done! Use time:{t3-t2}','\n','Start data restore')
 

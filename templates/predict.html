@@ -64,7 +64,7 @@
         <h2 class="section-heading centered lookupheading">predict your file</h2>
       </div>
       <p id="thanks-text" class="thankstext">Upload your *.vcf file, and choose traits to predict.<br>You can choose
-        whether contribute your results to our database or not.<br></p>
+        whether contribute your results to our database or not.<br>Click <a class="link-warning" href="/DownloadExample" style="text-decoration:none">here<a> to download a test example.<br></p>
       <div class="form-wrapper w-form">
         <form action="/Predict" method="post">
           <div class="container my-5">
@@ -260,7 +260,7 @@
               <tr>
                 {% for col in col_names %}
                 <th>
-                  <h5 class="text">{{ col }}</h5>
+                  <p class="text-dark">{{ col }}</p>
                 </th>
                 {% endfor %}
               </tr>
@@ -270,7 +270,7 @@
               <tr>
                 {% for col in row[1] %}
                 <td>
-                  <h5 class="text">{{ col }}</h5>
+                  <p>{{ col|safe }}</p>
                 </td>
                 {% endfor %}
               </tr>

@@ -57,7 +57,7 @@
               <tr>
                 {% for col in col_names %}
                 <th>
-                  <h5 class="text">{{ col }}</h5>
+                  <p class="text-dark"><b>{{ col }}</b></p>
                 </th>
                 {% endfor %}
               </tr>
@@ -67,7 +67,7 @@
               <tr>
                 {% for col in row[1] %}
                 <td>
-                  <h5 class="text">{{ col }}</h5>
+                  <p>{{ col|safe }}</p>
                 </td>
                 {% endfor %}
               </tr>

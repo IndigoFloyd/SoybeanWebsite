@@ -14,6 +14,8 @@ from email.mime.multipart import MIMEMultipart
 from email.header import Header
 import smtplib
 import json
+import requests as re
+import torch
 
 # 公用变量，性状名
 traitsList = ['ALL',
@@ -61,15 +63,53 @@ redis_pool = redis.ConnectionPool(host=host, port=port, decode_responses=True)
 # 重定向主页至/SoyDNGP
 @app.route('/')
 def redirect_to_index():
+    ip = request.headers['X-Forwarded-For']
+    key = 'GORBZ-Y27C5-R3GIZ-I6SFZ-BR7U6-3JB6A'
+    sk = '87HIx3HWaB3mflZfWiXjIaVuiVsuI0r8'
+    api = f"/ws/location/v1/ip/?ip={ip}&key={key}"
+    md5 = hashlib.md5(f"{api+sk}".encode('utf-8')).hexdigest()
+    api_new = "https://apis.map.qq.com" + api + f"&sig={md5}"
+    result = eval(re.get(api_new).content.decode())
+    if not int(result['status']):
+        pos = eval(re.get(api_new).content.decode())['result']['location']
+        # 链接本地MongoDB数据库
+        client = MongoClient("mongodb://xtlab:S2o0y2D3N0G6P@localhost:27017/")
+        # 选择test数据库
+        db = client.location
+        # 选择location下的location collection
+        collection = db.location
+        # 添加location
+        collection.insert_one(pos)
     return redirect('/SoyDNGP')
+
 # Contact页面
 @app.route('/contact')
 def contact():
     return render_template('contact.html')
+@app.route('/SoyTSS')
+# SoyTSS
+def SoyTSS():
+    return render_template('Give.html')
 # Learn More页面
 @app.route('/LearnMore')
 def LearnMore():
-    return render_template('learnmore.html')
+    # 链接本地MongoDB数据库
+    client = MongoClient("mongodb://xtlab:S2o0y2D3N0G6P@localhost:27017/")
+    # 选择test数据库
+    db = client.location
+    # 选择location下的location collection
+    collection = db.location
+    # 查询所有结果
+    rets = collection.find()
+    # 设置geometries列表
+    geo = []
+    id = 0
+    for ret in rets:
+        id += 1
+        posdict = {"id": id, "lat":f"{ret['lat']}", "lng":f"{ret['lng']}"}
+        geo.append(posdict)
+    print(geo)
+    return render_template('learnmore.html', markers=geo)
 # 搜索页面
 @app.route('/Search')
 def Search():
@@ -79,6 +119,11 @@ def Search():
 @app.route('/UploadData')
 def UploadData():
     return render_template('predict.html', df=pd.DataFrame())
+
+# 下载测试样例
+@app.route('/DownloadExample')
+def DownloadExample():
+    return send_file('/home/wxt/Projects/SoybeanWebsite2/10_test_examples.vcf')
 
 # 错误页面
 @app.errorhandler(400)
@@ -121,7 +166,7 @@ def submit():
                 # 根据traitsList获取全部选定性状名
                 traitsNames = [traitsList[int(i)] for i in traits]
                 # 链接本地MongoDB数据库
-                client = MongoClient("mongodb://localhost:27017/")
+                client = MongoClient("mongodb://xtlab:S2o0y2D3N0G6P@localhost:27017/")
                 # 选择test数据库
                 db = client.test
                 # 选择test下的test collection
@@ -129,25 +174,26 @@ def submit():
                 # 根据acid查询
                 print(id)
                 rets = collection.find({"$or": [{'acid': id}, {"CommonName": id}]})
-                # 将ID行添加进空列表，如果查询多ID，可以由此行区分开是谁的性状
-                results.append({'trait': id, 'value': ""})
+                # 创建一个{ID，性状1，性状2......}的字典，便于dataframe的创建
+                result = {"ID or Common Name": f"<span class='text-dark'><b>{id}</b></span>"}
                 # 遍历查询结果
                 for i in rets:
                     # 遍历选定的性状名
                     for j in traitsNames:
                         # i是dict对象，使用get方法查询对应性状内容，如果没有就默认No result
                         value = i.get(j, 'No result')
-                        # 编辑json键值对
-                        result = {"trait": j, "value":value}
+                        # 添加进字典
+                        result[j] = value
                         # 将结果添加进列表中
-                        results.append(result)
+                results.append(result)
                 # 因为不为空所以可以显示结果
                 showresult = True
         # 有一个为空，不显示结果，查询结果为空
         else:
             results = None
             showresult = False
-        return render_template('/lookup.html', showresult=showresult, results=results, ID=ID)
+        resultDF = pd.DataFrame(results)
+        return render_template('/lookup.html', showresult=showresult, results=resultDF, col_names=resultDF.columns, ID=ID)
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -185,7 +231,7 @@ def upload():
         # 上传session，更新filePath、fileName和md5
         r.set("task_session", json.dumps({taskID: task_session_}))
         # 链接数据库
-        client = MongoClient("mongodb://localhost:27017/")
+        client = MongoClient("mongodb://xtlab:S2o0y2D3N0G6P@localhost:27017/")
         # 打开files
         db = client.files
         # 查询 MongoDB
@@ -222,6 +268,7 @@ def getArgs():
 
 @app.route('/Predict', methods=['GET', 'POST'])
 def JoinOrNot():
+    torch.cuda.empty_cache()
     if request.method == 'POST':
         # 获取日期与md5，组装成taskID用以辨别不同请求
         date = str(datetime.datetime.now()).split(' ')
@@ -246,6 +293,7 @@ def JoinOrNot():
                 worker = predict_after.predict(task_session_['filePath'] + task_session_['fileName'], traitsNames,
                                                task_session_['filePath'], r, taskID=session['taskID'],
                                                if_all=False)
+        torch.cuda.empty_cache()
         # 设置predict_finish状态为True，并更新到全局变量
         progressdict = json.loads(r.get('progressdict'))[session['taskID']]
         task_session_['predict_finish'] = True
@@ -258,26 +306,10 @@ def JoinOrNot():
         resultJSON = taskdict['result']
         resultDF = pd.read_json(resultJSON, encoding="utf-8", orient='records')
         # resultDF = pd.read_csv(r"C:\Users\PinkFloyd\OneDrive\桌面\predict.csv")
-        # 设置每页可以显示的结果数
-        rows_per_page = 3
-        # 计算总共的页数
-        taskdict['total_pages'] = len(resultDF) // rows_per_page + 1
-        # 设置当前页面数
-        taskdict['page'] = 1
-        # 计算起始行数
-        start_row = (taskdict['page'] - 1) * rows_per_page
-        # 设置结束行数（当前页面显示的最后一行在resultDF中是第几行）
-        end_row = start_row + rows_per_page
-        # 使用行号切片resultDF
-        df_slice = resultDF.iloc[start_row:end_row]
-        # 获取表单的列名
-        taskdict['col_names'] = resultDF.columns.tolist()
-        # 上传到redis
-        r.set('taskdict', json.dumps({session['taskID']: taskdict}))
         # 如果用户同意加入
         if task_session_['join'] == 'yes':
             # 链接本地MongoDB数据库
-            client = MongoClient("mongodb://localhost:27017/")
+            client = MongoClient("mongodb://xtlab:S2o0y2D3N0G6P@localhost:27017/")
             # 选择test数据库
             db = client.test
             # 选择test下的test collection
@@ -314,6 +346,24 @@ def JoinOrNot():
             collection.insert_many(resultList)
         elif task_session_['join'] == 'no':
             pass
+        temp = resultDF['acid']
+        resultDF['acid'] = temp.map(lambda x: f"<span class='text-dark'><b>{x}</b></span>")
+        # 设置每页可以显示的结果数
+        rows_per_page = 3
+        # 计算总共的页数
+        taskdict['total_pages'] = len(resultDF) // rows_per_page + 1
+        # 设置当前页面数
+        taskdict['page'] = 1
+        # 计算起始行数
+        start_row = (taskdict['page'] - 1) * rows_per_page
+        # 设置结束行数（当前页面显示的最后一行在resultDF中是第几行）
+        end_row = start_row + rows_per_page
+        # 使用行号切片resultDF
+        df_slice = resultDF.iloc[start_row:end_row]
+        # 获取表单的列名
+        taskdict['col_names'] = resultDF.columns.tolist()
+        # 上传到redis
+        r.set('taskdict', json.dumps({session['taskID']: taskdict}))
         return render_template('result.html', df=df_slice, total_pages=taskdict['total_pages'],
                                page=taskdict['page'],
                                predict_finish=task_session_['predict_finish'],
@@ -341,6 +391,8 @@ def pagenext():
     rows_per_page = 3
     resultJSON = taskdict['result']
     resultDF = pd.read_json(resultJSON, encoding="utf-8", orient='records')
+    temp = resultDF['acid']
+    resultDF['acid'] = temp.map(lambda x: f"<span class='text-dark'><b>{x}</b></span>")
     start_row = (taskdict['page'] - 1) * rows_per_page
     end_row = start_row + rows_per_page
     df_slice = resultDF.iloc[start_row:end_row]
@@ -361,6 +413,8 @@ def pageprev():
     rows_per_page = 3
     resultJSON = taskdict['result']
     resultDF = pd.read_json(resultJSON, encoding="utf-8", orient='records')
+    temp = resultDF['acid']
+    resultDF['acid'] = temp.map(lambda x: f"<span class='text-dark'><b>{x}</b></span>")
     start_row = (taskdict['page'] - 1) * rows_per_page
     end_row = start_row + rows_per_page
     df_slice = resultDF.iloc[start_row:end_row, :]
@@ -420,4 +474,4 @@ def send():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+    app.run(host="0.0.0.0", port=8080, threaded=False)
