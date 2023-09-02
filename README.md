@@ -30,6 +30,9 @@ In order to demonstrate the operation principle of web pages more clearly, we ha
 ![image](https://github.com/IndigoFloyd/SoybeanWebsite/blob/main/Sequence%20Diagram.png)
 # How to deploy it
 ## Needed environment
+------update on 2023.9.2------
+Now we provide a prepared docker image to setup our toolkit SoyDNGPNext.
+-->https://hub.docker.com/repository/docker/indigofloyd/soydngp/general
 1.&emsp;Needed packages are listed in the **requirements.txt**, use ```pip install -r requirements.txt``` to install them.\
 2.&emsp;For softwares this project depends on, **Redis**, **MongoDB** and **Nginx** are significant. You can monitor the changes of Redis by commands ```127.0.0.1:6379>MONITOR```, and manage visualized Mongodb databases by **MongoDB Compass**, which is also officially recommended. A simple Flask built-in web server is prone to socket issues when under high pressure, as it is single-process and single-thread. Using **Gunicorn** to start significantly improves response speed and capability. In the configuration, workers specify the number of processes to start, and the CPU loss is averaged across each process. Gunicorn could be installed easily by ```pip install gunicorn``` on the Linux system.
 ## Some custom changes
