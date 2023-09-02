@@ -7,9 +7,8 @@ import hashlib
 import os
 import predict_after
 import redis
-# 负责构造文本
+# construct Email text
 from email.mime.text import MIMEText
-# 负责将多个对象集合起来
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
 import smtplib
@@ -17,7 +16,7 @@ import json
 import requests as re
 import torch
 
-# 公用变量，性状名
+# public variable, trait name
 traitsList = ['ALL',
  'MG',
  'ST',
@@ -48,19 +47,19 @@ traitsList = ['ALL',
  'SCN3',
  'Stearic']
 
-# 启动app实例
+# Start the app instance
 def index():
     return render_template('index.html')
 app = Flask(__name__)
 app.add_url_rule('/SoyDNGP', 'index', view_func=index)
 app.secret_key = 'isadiashdiow12324'
-# 创建一个redis实例，用于进度条更新
+# Create a redis instance for progress bar update
 host = "127.0.0.1"
 port = "6379"
 redis_pool = redis.ConnectionPool(host=host, port=port, decode_responses=True)
 
 
-# 重定向主页至/SoyDNGP
+# Redirect homepage to /SoyDNGP
 @app.route('/')
 def redirect_to_index():
     ip = request.headers['X-Forwarded-For']
@@ -72,36 +71,34 @@ def redirect_to_index():
     result = eval(re.get(api_new).content.decode())
     if not int(result['status']):
         pos = eval(re.get(api_new).content.decode())['result']['location']
-        # 链接本地MongoDB数据库
-        client = MongoClient("mongodb://xtlab:S2o0y2D3N0G6P@localhost:27017/")
-        # 选择test数据库
+        # Link to local MongoDB database
+        client = MongoClient("mongodb:///")
+        # Select the test database
         db = client.location
-        # 选择location下的location collection
+        # Select location collection under location
         collection = db.location
-        # 添加location
+        # add location
         collection.insert_one(pos)
     return redirect('/SoyDNGP')
 
-# Contact页面
+# Contact page
 @app.route('/contact')
 def contact():
     return render_template('contact.html')
 @app.route('/SoyTSS')
-# SoyTSS
-def SoyTSS():
-    return render_template('Give.html')
-# Learn More页面
+
+# Learn More page
 @app.route('/LearnMore')
 def LearnMore():
-    # 链接本地MongoDB数据库
-    client = MongoClient("mongodb://xtlab:S2o0y2D3N0G6P@localhost:27017/")
-    # 选择test数据库
+    # Link to local MongoDB database
+    client = MongoClient("mongodb:///")
+    # Select the test database
     db = client.location
-    # 选择location下的location collection
+    # Select location collection under location
     collection = db.location
-    # 查询所有结果
+    # query all results
     rets = collection.find()
-    # 设置geometries列表
+    # set geometries list
     geo = []
     id = 0
     for ret in rets:
@@ -110,22 +107,22 @@ def LearnMore():
         geo.append(posdict)
     print(geo)
     return render_template('learnmore.html', markers=geo)
-# 搜索页面
+# Search page
 @app.route('/Search')
 def Search():
     return render_template('lookup.html')
 
-# 上传页面
+# Upload page
 @app.route('/UploadData')
 def UploadData():
     return render_template('predict.html', df=pd.DataFrame())
 
-# 下载测试样例
+# Download the test examples
 @app.route('/DownloadExample')
 def DownloadExample():
     return send_file('/home/wxt/Projects/SoybeanWebsite2/10_test_examples.vcf')
 
-# 错误页面
+# error page
 @app.errorhandler(400)
 def page_not_found(error):
     return render_template('errors.html')
@@ -144,51 +141,51 @@ def internal_server_error(error):
 
 @app.route('/submit', methods=['POST'])
 def submit():
-    # 对应action /submit
+    # correspond to action /submit
     if request.method == 'POST':
-        # 从form获取ID并拆分为列表
+        # Get the ID from the form and split it into a list
         ID = request.form['ID'].split(';')
-        # ID列表的去重与排列
+        # Deduplication and arrangement of ID list
         new_ID = list(set(ID))
         new_ID.sort(key=ID.index)
-        # 从form获取用户选定的性状
+        # Get the traits selected by the user from the form
         traits = request.form.getlist('options')
-        # 创建空白列表，用于存放查询结果
+        # Create an empty list for storing query results
         results = []
-        # 当ID和选定的性状都不为空时
+        # When neither the id nor the selected trait is empty
         if len(new_ID) and len(traits) != 0:
-            # 遍历ID
+            # traversal ID
             for id in new_ID:
-                # 如果选定为“all”
+                # If selected as "all"
                 if traits[0] == 'all':
-                    # 相当于选定全部性状
+                    # Equivalent to selecting all traits
                     traits = traits[1:]
-                # 根据traitsList获取全部选定性状名
+                # Get all selected trait names according to traitsList
                 traitsNames = [traitsList[int(i)] for i in traits]
-                # 链接本地MongoDB数据库
-                client = MongoClient("mongodb://xtlab:S2o0y2D3N0G6P@localhost:27017/")
-                # 选择test数据库
+                # Link to local MongoDB database
+                client = MongoClient("mongodb://")
+                # Select the test database
                 db = client.test
-                # 选择test下的test collection
+                # Select the test collection under test
                 collection = db.test
-                # 根据acid查询
+                # Query by acid
                 print(id)
                 rets = collection.find({"$or": [{'acid': id}, {"CommonName": id}]})
-                # 创建一个{ID，性状1，性状2......}的字典，便于dataframe的创建
+                # Create a dictionary of {ID, trait 1, trait 2...} for easy dataframe creation
                 result = {"ID or Common Name": f"<span class='text-dark'><b>{id}</b></span>"}
-                # 遍历查询结果
+                # Traverse query results
                 for i in rets:
-                    # 遍历选定的性状名
+                    # Iterate over selected trait names
                     for j in traitsNames:
-                        # i是dict对象，使用get方法查询对应性状内容，如果没有就默认No result
+                        # i is a dict object, use the get method to query the corresponding trait content, if not, it will default to No result
                         value = i.get(j, 'No result')
-                        # 添加进字典
+                        # add to dictionary
                         result[j] = value
-                        # 将结果添加进列表中
+                        # add the result to the list
                 results.append(result)
-                # 因为不为空所以可以显示结果
+                # The result can be displayed because it is not empty
                 showresult = True
-        # 有一个为空，不显示结果，查询结果为空
+        # One is empty, no results are displayed, and the query result is empty
         else:
             results = None
             showresult = False
@@ -197,54 +194,54 @@ def submit():
 
 @app.route('/upload', methods=['POST'])
 def upload():
-    # 取一个线程，每次上传就相当于建立一个新的task
+    # Take a thread, each upload is equivalent to creating a new task
     r = redis.Redis(connection_pool=redis_pool)
-    # 初始化taskID
+    # Initialize taskID
     taskID = hashlib.md5(os.urandom(20)).hexdigest()
     session['taskID'] = taskID
     task_session_ = {"taskID": taskID, "md5": "", "join": "", "traits": "", "filePath": "", "fileName": "",
                     "predict_finish": False}
-    # 从files获取用户上传的文件
+    # Get user uploaded files from files
     file = request.files.get('file')
-    # 从缓存中被拿出，用byte保存
+    # It is taken out from the cache and saved in byte
     content = file.read()
-    # 如果内容不为空
+    # if content is not empty
     if content:
-        # 计算 MD5
+        # Calculate MD5
         file_md5 = hashlib.md5(content).hexdigest()
-        # 将md5作为session的变量
+        # Use md5 as a session variable
         task_session_['md5'] = file_md5
-        # 记录时间，并且转换为列表，一共7个元素
+        # Record the time and convert it to a list with a total of 7 elements
         date = str(datetime.datetime.now()).split(' ')
-        # 组合新的文件名，以日期+md5组成，e.g."2023-06-06-16.41.05.379780-a8d2a9a59092c18c35f688be915a5bb6"
+        # Combine the new file name with date + md5, e.g."2023-06-06-16.41.05.379780-a8d2a9a59092c18c35f688be915a5bb6"
         newfilename = date[0] + '-' + date[1].replace(':', '.') + '-' + file_md5
-        # 如果不存在该路径
+        # If the path does not exist
         if not os.path.exists(f"./{newfilename}"):
-            # 创建文件夹
+            # create folder
             os.mkdir(f"./{newfilename}")
-            # 组合出路径
+            # Compose the path
         savepath = f"./{newfilename}/" + file.filename
-        # 全局变量赋值为文件名
+        # The global variable is assigned the file name
         task_session_['fileName'] = file.filename
-        # 组装存放目录
+        # Assembly storage directory
         task_session_['filePath'] = f"./{newfilename}/"
-        # 上传session，更新filePath、fileName和md5
+        # Upload session, update filePath, fileName and md5
         r.set("task_session", json.dumps({taskID: task_session_}))
-        # 链接数据库
+        # link database
         client = MongoClient("mongodb://xtlab:S2o0y2D3N0G6P@localhost:27017/")
-        # 打开files
+        # open files
         db = client.files
-        # 查询 MongoDB
+        # query MongoDB
         result = db.files.find_one({'md5': file_md5})
-        # 如果没记录，说明第一次上传
+        # If there is no record, it means uploading for the first time
         if not result:
-            # 写入文件到本地
+            # write file to local
             with open(savepath, 'wb') as f:
                 f.write(content)
-            # 插入md5和对应存放目录记录
+            # Insert md5 and corresponding storage directory records
             db.files.insert_one({'path':savepath, 'md5': file_md5})
         else:
-            # 如果已经有记录就从目录将文件复制过来
+            # Copy the file from the directory if there is already a record
             shutil.copyfile(result['path'], savepath)
         return jsonify({'errno':0, 'errmsg':'success'})
     else:
@@ -253,12 +250,12 @@ def upload():
 @app.route('/getArgs', methods=['POST'])
 def getArgs():
     if request.method == "POST":
-        # 获取用户是否同意加入数据库
+        # Obtain whether the user agrees to join the database
         data = request.json
         join = data.get("join")
-        # 从form获取性状id
+        # Get trait id from form
         traits = data.get('options')
-        # 更新到session
+        # update to session
         r = redis.Redis(connection_pool=redis_pool)
         task_session_ = json.loads(r.get("task_session"))[session['taskID']]
         task_session_['join'] = join
@@ -270,20 +267,20 @@ def getArgs():
 def JoinOrNot():
     torch.cuda.empty_cache()
     if request.method == 'POST':
-        # 获取日期与md5，组装成taskID用以辨别不同请求
+        # Get the date and md5 and assemble it into taskID to identify different requests
         date = str(datetime.datetime.now()).split(' ')
-        # 从线程池获取一个redis线程
+        # Get a redis thread from the thread pool
         r = redis.Redis(connection_pool=redis_pool)
-        # 取回session
+        # Retrieve session
         task_session_ = json.loads(r.get("task_session"))[session['taskID']]
-        # 如果性状不为空
+        # If the trait is not null
         worker = None
         if len(task_session_['traits']) != 0:
-            # 判断是否点击了全选，并更改traitsNames
+            # Determine whether to click Select All and change traitsNames
             if task_session_['traits'][-1] != 'all':
                 print(task_session_['filePath'] + task_session_['fileName'])
                 traitsNames = [traitsList[int(i)] for i in task_session_['traits']]
-                # 开始预测
+                # start forecasting
                 worker = predict_after.predict(task_session_['filePath'] + task_session_['fileName'], traitsNames,
                                                task_session_['filePath'], r, taskID=session['taskID'],
                                                if_all=False)
@@ -294,75 +291,71 @@ def JoinOrNot():
                                                task_session_['filePath'], r, taskID=session['taskID'],
                                                if_all=False)
         torch.cuda.empty_cache()
-        # 设置predict_finish状态为True，并更新到全局变量
+        # Set the predict_finish state to True and update to the global variable
         progressdict = json.loads(r.get('progressdict'))[session['taskID']]
         task_session_['predict_finish'] = True
         r.set("task_session", json.dumps({session['taskID']: task_session_}))
         progressdict['predict_finish'] = True
         r.set('progressdict', json.dumps({session['taskID']: progressdict}))
-        # 获取taskdict
+        # fetch taskdict
         taskdict = json.loads(r.get('taskdict'))[session['taskID']]
-        # 因为df无法直接json化，所以需要先转化为JSON再传入taskdict，使用时也要先解析
+        # Because df cannot be directly jsonized, it needs to be converted into JSON before passing it into taskdict, and it must be parsed before use
         resultJSON = taskdict['result']
         resultDF = pd.read_json(resultJSON, encoding="utf-8", orient='records')
         # resultDF = pd.read_csv(r"C:\Users\PinkFloyd\OneDrive\桌面\predict.csv")
-        # 如果用户同意加入
+        # If the user agrees to join
         if task_session_['join'] == 'yes':
-            # 链接本地MongoDB数据库
             client = MongoClient("mongodb://xtlab:S2o0y2D3N0G6P@localhost:27017/")
-            # 选择test数据库
             db = client.test
-            # 选择test下的test collection
             collection = db.test
-            # 读取df
             resultList = []
             for i in range(len(resultDF)):
-                # 读取每行数据
+                # read each row of data
                 row = resultDF.iloc[i, :]
-                # 读取ID
+                # read ID
                 seedID = row['acid']
-                # 获取Common Name
+                # Get Common Name
                 rets = collection.find({'acid': seedID})
                 CommonName = ""
                 for ret in rets:
                     CommonName = ret.get('CommonName', "")
-                # 创建字典
+                # create dictionary
                 if len(CommonName):
                     seedDict = {"acid": seedID, "CommonName": CommonName}
                 else:
                     seedDict = {"acid": seedID}
-                # 添加性状内容（col_names[0]是id）
+                # Add trait content (col_names[0] is id)
                 for name in taskdict['col_names'][1:]:
                     trait = name
-                    # 判断是不是缺失值，做一下特殊标记
+                    # To judge whether it is a missing value, make a special mark
                     if worker.IsMissing:
                         value = f"**{row[trait]}**(predict, uploaded at {date[0] + '-' + date[1].replace(':', '.')})"
                     else:
                         value = f"{row[trait]}(predict, uploaded at {date[0] + '-' + date[1].replace(':', '.')})"
-                    # 组装字典
+                    # assembled dictionary
                     seedDict[trait] = value
-                # 添加样本
+                # add sample
                 resultList.append(seedDict)
             collection.insert_many(resultList)
         elif task_session_['join'] == 'no':
             pass
         temp = resultDF['acid']
         resultDF['acid'] = temp.map(lambda x: f"<span class='text-dark'><b>{x}</b></span>")
-        # 设置每页可以显示的结果数
+        # Set the number of results that can be displayed per page
         rows_per_page = 3
-        # 计算总共的页数
+        # Calculate the total number of pages
         taskdict['total_pages'] = len(resultDF) // rows_per_page + 1
-        # 设置当前页面数
+        # Set the current page number
         taskdict['page'] = 1
-        # 计算起始行数
+        # Calculate the number of starting rows
         start_row = (taskdict['page'] - 1) * rows_per_page
-        # 设置结束行数（当前页面显示的最后一行在resultDF中是第几行）
+        # Set the number of ending rows (what row is the last row displayed on the current page in resultDF)
         end_row = start_row + rows_per_page
-        # 使用行号切片resultDF
+        # Slicing resultDF with row numbers
         df_slice = resultDF.iloc[start_row:end_row]
-        # 获取表单的列名
+        # Get the column names of the form
         taskdict['col_names'] = resultDF.columns.tolist()
-        # 上传到redis
+        # upload to redis
         r.set('taskdict', json.dumps({session['taskID']: taskdict}))
         return render_template('result.html', df=df_slice, total_pages=taskdict['total_pages'],
                                page=taskdict['page'],
@@ -371,22 +364,22 @@ def JoinOrNot():
 
 @app.route("/progress")
 def update_progress():
-    # 取一个线程
+    # Fetch a thread
     r = redis.Redis(connection_pool=redis_pool)
-    # 取回progressdict
+    # Retrieve progressdict
     progressdict = json.loads(r.get('progressdict'))[session['taskID']]
     return progressdict
 
 
 @app.route('/pagenext')
 def pagenext():
-    # 取一个线程
+    # Fetch a thread
     r = redis.Redis(connection_pool=redis_pool)
-    # 取回taskdict
+    # retrieve taskdict
     taskdict = json.loads(r.get('taskdict'))[session['taskID']]
     task_session_ = json.loads(r.get('task_session'))[session['taskID']]
     taskdict['page'] += 1
-    # 更新page
+    # update page
     r.set('taskdict', json.dumps({session['taskID']: taskdict}))
     rows_per_page = 3
     resultJSON = taskdict['result']
@@ -402,13 +395,13 @@ def pagenext():
 
 @app.route('/pageprev')
 def pageprev():
-    # 取一个线程
+    # Fetch a thread
     r = redis.Redis(connection_pool=redis_pool)
-    # 取回taskdict
+    # retrieve taskdict
     taskdict = json.loads(r.get('taskdict'))[session['taskID']]
     task_session_ = json.loads(r.get('task_session'))[session['taskID']]
     taskdict['page'] -= 1
-    # 更新page
+    # update page
     r.set('taskdict', json.dumps({session['taskID']: taskdict}))
     rows_per_page = 3
     resultJSON = taskdict['result']
@@ -425,9 +418,9 @@ def pageprev():
 
 @app.route('/download')
 def download_file():
-    # 取一个线程
+    # Fetch a thread
     r = redis.Redis(connection_pool=redis_pool)
-    # 取回taskdict
+    # retrieve taskdict
     task_session_ = json.loads(r.get('task_session'))[session['taskID']]
     return send_file(f'{task_session_["filePath"]}/predict.csv')
     # return send_file(rf"D:\Projects\website\soybean\2023-05-30-3.3751.402995-a8d2a9a59092c18c35f688be915a5bb6\predict.csv")
@@ -454,19 +447,19 @@ def send():
         print(userName, userEmail, userContent)
         mail_sender = '1135431747@qq.com'
         mail_host = 'smtp.qq.com'
-        mail_license = 'dgyqkhmkgirjigij'
-        mail_receivers = ['1135431747@qq.com', 'wangxt881@gmail.com']  # 接收邮件，可设置为你的QQ邮箱或者其他邮箱
+        mail_license = ''
+        mail_receivers = ['1135431747@qq.com', 'wangxt881@gmail.com']  
         mail = MIMEMultipart('related')
-        mail['From'] = f"Website User<{mail_sender}>"  # 发送者
-        mail['To'] = "zhn<1135431747@qq.com>, wxt<wangxt881@gmail.com>"  # 接收者
+        mail['From'] = f"Website User<{mail_sender}>"  # sender
+        mail['To'] = "zhn<1135431747@qq.com>, wxt<wangxt881@gmail.com>"  # receiver
         mail['Subject'] = Header('网页问题反馈', 'utf-8')  # 主题
-        # 三个参数：第一个为文本内容，第二个 plain 设置文本格式，第三个 utf-8 设置编码
+        # Three parameters: the first is the text content, the second plain sets the text format, and the third utf-8 sets the encoding
         message = MIMEText(f'用户：{userName[0]}\n反馈：{userContent[0]}\n请回复至：{userEmail[0]}', 'plain', 'utf-8')
         mail.attach(message)
         stp = smtplib.SMTP()
         stp.connect(mail_host, 587)
         stp.login(mail_sender, mail_license)
-        # 发送邮件，传递参数1：发件人邮箱地址，参数2：收件人邮箱地址，参数3：把邮件内容格式改为str
+        # Send email, pass parameter 1: sender email address, parameter 2: recipient email address, parameter 3: change the format of email content to str
         stp.sendmail(mail_sender, mail_receivers, mail.as_string())
         stp.quit()
     return render_template('thanksforcontact.html')
