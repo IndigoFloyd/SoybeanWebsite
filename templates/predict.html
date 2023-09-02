@@ -295,7 +295,7 @@
   <script src="//cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
   <script>
     $(function () {
-      // 全选
+      // select all
       $('#checkall').click(function () {
         $('input[name=options]').prop('checked', this.checked);
       });
@@ -304,18 +304,18 @@
   <script>
     var progressBar = document.querySelector('#progress-bar');
     var progressInterval;
-    // 点击确定后开始预测
+    // predict after clicking confirm button
     $(function () {
       $('#joinDbBtn').click(function () {
         let options = $('input[name="options"]:checked').map(function () {
           return $(this).val();
         }).get();
-        // 构造请求参数
+        // Construct request parameters
         let data = {
           "options": options,
           "join": "yes"
         }
-        // 调用/Predict接口,传入data
+        // Call the /Predict interface and pass in data
         fetch('/getArgs', {
           method: 'POST',
           headers: {
@@ -336,18 +336,18 @@
         }, 500);
       });
     });
-    // 点击取消后开始预测
+    // Click Cancel to start forecasting
     $(function () {
       $('#nojoinDbBtn').click(function () {
         let options = $('input[name="options"]:checked').map(function () {
           return $(this).val();
         }).get();
-        // 构造请求参数
+        // Construct request parameters
         let data = {
           "options": options,
           "join": "no"
         }
-        // 调用/Predict接口,传入data
+        // Call the /Predict interface and pass in data
         fetch('/getArgs', {
           method: 'POST',
           headers: {
@@ -369,8 +369,8 @@
       });
     });
     function updateProgress(data) {
-      progressBar.style.width = data.progress;  // 更新进度条的宽度
-      progressBar.innerHTML = data.title;  // 更新进度条的标题
+      progressBar.style.width = data.progress;  // Update the width of the progress bar
+      progressBar.innerHTML = data.title;  // Update the title of the progress bar
     }
   </script>
   <div class="footer wf-section">
