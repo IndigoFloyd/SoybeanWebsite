@@ -18,7 +18,7 @@ class predict():
         self.progressdict = {"title": "", "progress": "", "predict_finish": False}
         self.taskdict = {"result": pd.DataFrame(), "page": 0, "total_pages": 0, "col_names": []}
         self.IsMissing = False
-        #构建需要预测的性状列表
+        # Build a list of traits to predict
         n_trait = ['protein', 'oil', 'SdWgt', 'Yield', 'R8', 'R1', 'Hgt', 'Linoleic', 'Linolenic', 'Palmitic', 'Stearic', 'Oleic']
         p_trait = ['MG', 'SQ', 'ST', 'Ldg', 'P_CLR', 'Mot', 'P_FRM', 'SC_L', 'SC_CLR', 'Stem term', 'H_CLR', 'PRR1', 'SCN3', 'FC', 'P_DENS', 'POD']
         if not if_all:
@@ -36,11 +36,11 @@ class predict():
             self.n_trait, self.p_trait = n_trait, p_trait
             self.trait_list = self.n_trait + self.p_trait
 
-        #读取基因型文件以及存储路径
+        # Read genotype file and storage path
         self.vcf_path = rf'{genotype_path}'
         self.save_dir = rf'{save_path}'
 
-        #获取各个性状的最值、对应类别号的字典并转换为列表        
+        # Get the most value of each trait, the dictionary of the corresponding category number and convert it into a list       
         max_min = pd.read_csv(r'./predict/n_trait.txt',header=None)
         p_dict = open(r'./predict/p_trait.txt','r').readlines()
         self.p_data = [i.strip() for i in p_dict]
@@ -60,22 +60,17 @@ class predict():
     
     def forward(self):
         t1 = self.timer()
-        #数据预处理
+        # data preprocessing
         data_list = data_process(self.vcf_path, self.Redis, self.taskID)
-        #返回处理后的数据以及需要预测的样本列表
+        # Return the processed data and a list of samples that need to be predicted
         predict_data,sample_list = data_list.to_dataset()
         self.IsMissing = data_list.IsMissing
-        #构造迭代器
-        current = torch.cuda.memory_allocated()
-        print(f"DataLoader类实例化前的显存占用:{current/1024/1024:.2f}")
+        # Construct iterator
         loader = DataLoader(data_loader(predict_data),batch_size=1,shuffle=False,num_workers=0)
-        later = torch.cuda.memory_allocated()
-        print(f"DataLoader类实例化后的显存占用:{later/1024/1024:.2f}")
-        print(f"DataLoader类实例化的显存占用:{(later-current)/1024/1024:.2f}")
         result = {}
         t2 = self.timer()
         # print(f'Data process has done! Use time:{t2-t1}','\n','Start data predict')
-        #对性状列表中的所有性状进行预测
+        # Make predictions for all traits in the trait list
         for index, (feature) in enumerate(loader):
             feature = feature.to('cuda:0')
             het = []
@@ -86,42 +81,37 @@ class predict():
                 self.progressdict['title'] = f"Predicting: Sample {index + 1} ({index+1} / {len(sample_list)})'s trait {trait}"
                 self.insertRedis()
                 weight_path = os.path.join(self.path, f'{trait}_best.pt')
-                current = torch.cuda.memory_allocated()
-                print(f"模型加载前的显存占用:{current/1024/1024:.2f}")
                 net = torch.load(weight_path, map_location="cuda:0")
-                later = torch.cuda.memory_allocated()
-                print(f"模型加载后的显存占用:{later/1024/1024:.2f}")
-                print(f"模型加载的显存占用:{(later-current)/1024/1024:.2f}")
                 net.eval()
                 y_het = net(feature)
-                #若为质量性状，则返回预测值中概率最大一类的索引
+                # If it is a quality trait, return the index of the class with the highest probability in the predicted value
                 if trait in self.p_trait:
                     y_het =  np.argmax(y_het.to('cpu').detach().numpy(),axis=1)
-                #将该样本的每一个性状加入列表
+                # Add each trait of the sample to the list
                     het.append(y_het[0])
                 else:
                     het.append(y_het.to('cpu').detach().numpy()[0][0])
                 del net
                 del y_het
                 torch.cuda.empty_cache()
-            #构建结果字典，键值对： 样本：[性状1，性状2……]
+            # Build a result dictionary, key-value pairs: Sample: [trait 1, trait 2...]
             result[sample_list[index]] = het
             torch.cuda.empty_cache()
         t3 = self.timer()
         # print(r'Predict has done! Use time:{t3-t2}','\n','Start data restore')
 
-        #将结果列表转为dataframe后进行转置，行索引为样本ID，列索引为性状预测值
+        # Convert the result list into a dataframe and then transpose, the row index is the sample ID, and the column index is the predicted value of the trait
         result = pd.DataFrame(result).transpose()
         result.columns = self.trait_list
 
-        #对数量性状的归一化数据、质量性状的分类数据进行还原
+        # Restore the normalized data of quantitative traits and the classified data of qualitative traits
         traitnum = 0
         for trait in self.trait_list:
             traitnum += 1
             self.progressdict['title'] = f"Restoring trait data: {trait}"
             self.progressdict['progress'] = f"{(traitnum / len(self.trait_list) * 100):.2f}%"
             self.insertRedis()
-            #质量性状归一化数据进行还原
+            # Quality traits normalized data for reduction
             if trait in self.n_trait:
                 for i in self.n_data:
                     print(i)
@@ -129,7 +119,7 @@ class predict():
                         max_of_trait,min_of_trait = float(i[0].split(";")[2]),float(i[0].split(";")[4])
                         break
                 result[trait] = result[trait]*(max_of_trait - min_of_trait) + min_of_trait
-            #根据数据预处理过程中生成的 性状：类别号 字典，对性状进行map还原
+            # According to the traits generated during the data preprocessing process: category number dictionary, the map restores the traits
             else:
                 for i in self.p_data:
                     if trait in i:
@@ -137,11 +127,11 @@ class predict():
                         break
                 dic = dict(zip(dic.values(), dic.keys()))
                 result[trait] = result[trait].map(dic)
-        #将预测数据储存为csv
+        # Store forecast data as csv
         result.index.name = "acid"
         result = result.reset_index()
         self.taskdict['result'] = result.to_json()
-        # 把结果传出去
+        # pass the result out
         self.insertTaskRedis()
         result.to_csv(os.path.join(self.save_dir, 'predict.csv'), index=False)
         self.progressdict['title'] = "Finish"
