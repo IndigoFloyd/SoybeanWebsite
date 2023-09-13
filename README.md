@@ -1,6 +1,6 @@
 # SoybeanWebsite
 SoyDNGP is an advanced web server designed to utilize the power of convolutional neural network-based models for the prediction of agronomic traits in soybean. Built to serve the burgeoning field of agriculture, our server supports the analysis of a comprehensive range of traits. **SoyDNGP is open source, but only used for academic research. If commercial use is required, please contact us.**\
-👉--------------------2023.9.13 update--------------------\
+👉**--------------------2023.9.13 update--------------------\**
 We have refactored SoyDNGP and added features such as customizing the model structure and training our own dataset. Please read https://github.com/IndigoFloyd/SoyDNGPNext for more information.
 # The structure of this website
 This website is based on a webflow template, and the backend is driven by Flask. In order to ensure the high scalability of the data, we have chosen MongoDB as our database. And because the workers created by Gunicorn are independent of each other, their data is not connected, and the session of Flask is relatively unstable, we need to introduce Redis as the "global variable manager".\
