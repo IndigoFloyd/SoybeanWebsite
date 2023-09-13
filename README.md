@@ -1,5 +1,7 @@
 # SoybeanWebsite
-SoyDNGP is an advanced web server designed to utilize the power of convolutional neural network-based models for the prediction of agronomic traits in soybean. Built to serve the burgeoning field of agriculture, our server supports the analysis of a comprehensive range of traits. **SoyDNGP is open source, but only used for academic research. If commercial use is required, please contact us.**
+SoyDNGP is an advanced web server designed to utilize the power of convolutional neural network-based models for the prediction of agronomic traits in soybean. Built to serve the burgeoning field of agriculture, our server supports the analysis of a comprehensive range of traits. **SoyDNGP is open source, but only used for academic research. If commercial use is required, please contact us.**\
+👉--------------------2023.9.13 update--------------------\
+We have refactored SoyDNGP and added features such as customizing the model structure and training our own dataset. Please read https://github.com/IndigoFloyd/SoyDNGPNext for more information.
 # The structure of this website
 This website is based on a webflow template, and the backend is driven by Flask. In order to ensure the high scalability of the data, we have chosen MongoDB as our database. And because the workers created by Gunicorn are independent of each other, their data is not connected, and the session of Flask is relatively unstable, we need to introduce Redis as the "global variable manager".\
 The structure is as follows:\
@@ -30,9 +32,6 @@ In order to demonstrate the operation principle of web pages more clearly, we ha
 ![image](https://github.com/IndigoFloyd/SoybeanWebsite/blob/main/Sequence%20Diagram.png)
 # How to deploy it
 ## Needed environment
-------update on 2023.9.2------\
-Now we provide a prepared docker image to setup our toolkit SoyDNGPNext.\
--->https://hub.docker.com/repository/docker/indigofloyd/soydngp/general \
 1.&emsp;Needed packages are listed in the **requirements.txt**, use ```pip install -r requirements.txt``` to install them.\
 2.&emsp;For softwares this project depends on, **Redis**, **MongoDB** and **Nginx** are significant. You can monitor the changes of Redis by commands ```127.0.0.1:6379>MONITOR```, and manage visualized Mongodb databases by **MongoDB Compass**, which is also officially recommended. A simple Flask built-in web server is prone to socket issues when under high pressure, as it is single-process and single-thread. Using **Gunicorn** to start significantly improves response speed and capability. In the configuration, workers specify the number of processes to start, and the CPU loss is averaged across each process. Gunicorn could be installed easily by ```pip install gunicorn``` on the Linux system.
 ## Some custom changes
