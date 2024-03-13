@@ -66,6 +66,6 @@ net:
 2.&emsp;Start Gunicorn.
 ```
 # 20 workers and 300s timeout
-gunicorn -w 20 --preload website:app --time 300
+gunicorn -w 20 --preload website:app --time 300 --max-requests 5
 ```
 
